@@ -17,16 +17,17 @@ use apoe_typer::{
 };
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateFontIndirectW, DeleteObject, GetStockObject, UpdateWindow, COLOR_BTNFACE,
+    CreateFontIndirectW, DeleteObject, GetStockObject, InvalidateRect, UpdateWindow, COLOR_BTNFACE,
     DEFAULT_GUI_FONT, HBRUSH, HFONT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::{
-    InitCommonControlsEx, ICC_LISTVIEW_CLASSES, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX,
-    LVCFMT_LEFT, LVCF_FMT, LVCF_TEXT, LVCF_WIDTH, LVCOLUMNW, LVIF_TEXT, LVITEMW,
-    LVM_DELETEALLITEMS, LVM_DELETECOLUMN, LVM_GETCOLUMNWIDTH, LVM_INSERTCOLUMNW, LVM_INSERTITEMW,
-    LVM_SETCOLUMNWIDTH, LVM_SETEXTENDEDLISTVIEWSTYLE, LVM_SETITEMTEXTW, LVS_EX_DOUBLEBUFFER,
-    LVS_EX_FULLROWSELECT, LVS_EX_GRIDLINES, LVS_REPORT, LVS_SHOWSELALWAYS, WC_LISTVIEWW,
+    InitCommonControlsEx, HDM_GETITEMCOUNT, ICC_LISTVIEW_CLASSES, ICC_STANDARD_CLASSES,
+    INITCOMMONCONTROLSEX, LVCFMT_LEFT, LVCF_FMT, LVCF_TEXT, LVCF_WIDTH, LVCOLUMNW, LVIF_TEXT,
+    LVITEMW, LVM_DELETEALLITEMS, LVM_DELETECOLUMN, LVM_GETCOLUMNWIDTH, LVM_GETHEADER,
+    LVM_INSERTCOLUMNW, LVM_INSERTITEMW, LVM_SETCOLUMNWIDTH, LVM_SETEXTENDEDLISTVIEWSTYLE,
+    LVM_SETITEMTEXTW, LVS_EX_DOUBLEBUFFER, LVS_EX_FULLROWSELECT, LVS_EX_GRIDLINES, LVS_REPORT,
+    LVS_SHOWSELALWAYS, WC_LISTVIEWW,
 };
 use windows_sys::Win32::UI::HiDpi::{
     AdjustWindowRectExForDpi, GetDpiForSystem, GetDpiForWindow, SystemParametersInfoForDpi,
@@ -394,14 +395,7 @@ unsafe fn create_controls(app: &App, hwnd: HWND) -> bool {
     let combo_class = windows_sys::w!("COMBOBOX");
 
     // Creation order is the Tab order.
-    let lbl_ref = child(
-        hwnd,
-        static_,
-        "參考基因組",
-        SS_NOPREFIX | SS_CENTERIMAGE,
-        0,
-        0,
-    );
+    let lbl_ref = child(hwnd, static_, "參考基因組(&G):", SS_CENTERIMAGE, 0, 0);
     let combo = child(
         hwnd,
         combo_class,
@@ -410,7 +404,7 @@ unsafe fn create_controls(app: &App, hwnd: HWND) -> bool {
         0,
         ID_COMBO,
     );
-    let lbl_in = child(hwnd, static_, "輸入檔", SS_NOPREFIX | SS_CENTERIMAGE, 0, 0);
+    let lbl_in = child(hwnd, static_, "輸入檔(&I):", SS_CENTERIMAGE, 0, 0);
     let edit = child(
         hwnd,
         edit_class,
@@ -422,7 +416,7 @@ unsafe fn create_controls(app: &App, hwnd: HWND) -> bool {
     let browse = child(
         hwnd,
         button,
-        "瀏覽...",
+        "瀏覽(&B)...",
         WS_TABSTOP | BS_PUSHBUTTON as u32,
         0,
         ID_BROWSE,
@@ -430,7 +424,7 @@ unsafe fn create_controls(app: &App, hwnd: HWND) -> bool {
     let run = child(
         hwnd,
         button,
-        "執行",
+        "執行(&R)",
         WS_TABSTOP | BS_PUSHBUTTON as u32,
         0,
         ID_RUN,
@@ -438,7 +432,7 @@ unsafe fn create_controls(app: &App, hwnd: HWND) -> bool {
     let export = child(
         hwnd,
         button,
-        "匯出...",
+        "匯出(&E)...",
         WS_TABSTOP | BS_PUSHBUTTON as u32,
         0,
         ID_EXPORT,
@@ -869,7 +863,35 @@ unsafe fn on_export(app: &App) {
 unsafe fn fill_list(app: &App, list: HWND, table: Option<&Table>) {
     SendMessageW(list, WM_SETREDRAW, 0, 0);
     SendMessageW(list, LVM_DELETEALLITEMS, 0, 0);
-    while SendMessageW(list, LVM_DELETECOLUMN, 0, 0) != 0 {}
+    // Delete from the last column backwards, driven by the header's item count
+    // (more robust than "delete column 0 until it fails").
+    let header = SendMessageW(list, LVM_GETHEADER, 0, 0) as HWND;
+    let count = if header.is_null() {
+        0
+    } else {
+        SendMessageW(header, HDM_GETITEMCOUNT, 0, 0).max(0) as usize
+    };
+    for i in (0..count).rev() {
+        SendMessageW(list, LVM_DELETECOLUMN, i, 0);
+    }
+
+    if table.is_none() {
+        // Keep one untitled placeholder column instead of none at all: with zero
+        // columns some list view implementations (wine) leave the old header
+        // text on screen.
+        let mut text = wide("");
+        let mut col: LVCOLUMNW = zeroed();
+        col.mask = LVCF_FMT | LVCF_TEXT | LVCF_WIDTH;
+        col.fmt = LVCFMT_LEFT;
+        col.cx = app.px(100);
+        col.pszText = text.as_mut_ptr();
+        SendMessageW(
+            list,
+            LVM_INSERTCOLUMNW,
+            0,
+            &col as *const LVCOLUMNW as LPARAM,
+        );
+    }
 
     if let Some(table) = table {
         for (i, title) in table.header.iter().enumerate() {
@@ -926,5 +948,12 @@ unsafe fn fill_list(app: &App, list: HWND, table: Option<&Table>) {
     }
 
     SendMessageW(list, WM_SETREDRAW, 1, 0);
-    windows_sys::Win32::Graphics::Gdi::InvalidateRect(list, null(), 1);
+    // The header is a child window of the list view: repaint it explicitly,
+    // otherwise old column titles can stay visible after the columns were deleted.
+    if !header.is_null() {
+        InvalidateRect(header, null(), 1);
+        UpdateWindow(header);
+    }
+    InvalidateRect(list, null(), 1);
+    UpdateWindow(list);
 }
