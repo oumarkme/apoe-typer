@@ -1,0 +1,18 @@
+#file	ref	error_contains
+vcf_hg19_b37.vcf	hg38	mismatch
+vcf_hg19_b37.vcf	hs1	mismatch
+vcf_hs1.vcf	hg19	mismatch
+vcf_hs1.vcf	hg38	mismatch
+vcf_hg38_table.vcf	hg19	mismatch
+vcf_hg38_table.vcf	hs1	mismatch
+vcf_hg38_refseq.vcf	hg19	mismatch
+vcf_hg19_accession_nolength.vcf	hg38	mismatch
+err_sites_only.vcf	hg38	no sample columns
+err_not_vcf.txt	hg38	#CHROM
+err_empty.vcf	hg38	#CHROM
+err_no_chrom_header.vcf	hg38	#CHROM
+err_space_delimited.vcf	hg38	tab
+err_truncated_record.vcf	hg38	line|columns
+err_sample_count.vcf	hg38	line|columns
+err_bcf.bcf	hg38	BCF
+does_not_exist.vcf	hg38	cannot open

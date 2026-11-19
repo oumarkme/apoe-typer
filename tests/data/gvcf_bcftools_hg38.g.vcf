@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=MinDP,Number=1,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1
+chr19	44908650	.	G	<*>	0	.	END=44908850;MinDP=20	GT:PL	0/0:0,60,255

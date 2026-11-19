@@ -1,0 +1,45 @@
+[package]
+name = "apoe-typer"
+version = "0.1.0"
+edition = "2021"
+description = "APOE genotyper (rs429358 / rs7412) for VCF and gVCF files, with a CLI and a Win32 GUI"
+default-run = "apoe-typer"
+publish = false
+
+[lib]
+name = "apoe_typer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "apoe-typer"
+path = "src/main.rs"
+
+[[bin]]
+name = "apoe-typer-gui"
+path = "src/bin/apoe-typer-gui/main.rs"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+flate2 = "1.1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Console",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Controls",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+embed-resource = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,164 @@
+#file	ref	sample	APOE	rs429358	rs7412	e1_dose	e2_dose	e3_dose	e4_dose	phased	note_contains
+vcf_hg38_unphased.vcf	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_unphased.vcf	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_unphased.vcf	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_unphased.vcf	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_unphased.vcf	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_unphased.vcf	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_unphased.vcf	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_unphased.vcf	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_unphased.vcf	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_unphased.vcf	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_unphased.vcf	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_unphased.vcf	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_unphased.vcf	hg38	e1e1	ε1/ε1	C/C	T/T	2	0	0	0	no	
+vcf_hg38_unphased.vcf	auto	e1e1	ε1/ε1	C/C	T/T	2	0	0	0	no	
+vcf_hg38_unphased.vcf	hg38	e1e2	ε1/ε2	T/C	T/T	1	1	0	0	no	
+vcf_hg38_unphased.vcf	auto	e1e2	ε1/ε2	T/C	T/T	1	1	0	0	no	
+vcf_hg38_unphased.vcf	hg38	e1e4	ε1/ε4	C/C	T/C	1	0	0	1	no	
+vcf_hg38_unphased.vcf	auto	e1e4	ε1/ε4	C/C	T/C	1	0	0	1	no	
+vcf_hg38_unphased.vcf	hg38	e3e4_rev	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_unphased.vcf	auto	e3e4_rev	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_unphased.vcf	hg38	e2e3_rev	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_unphased.vcf	auto	e2e3_rev	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_unphased.vcf	hg38	nocall_429	NA	./.	C/C	NA	NA	NA	NA	no	rs429358: no call (GT ./.)
+vcf_hg38_unphased.vcf	auto	nocall_429	NA	./.	C/C	NA	NA	NA	NA	no	rs429358: no call (GT ./.)
+vcf_hg38_unphased.vcf	hg38	nocall_7412	NA	T/C	./.	NA	NA	NA	NA	no	rs7412: no call (GT ./.)
+vcf_hg38_unphased.vcf	auto	nocall_7412	NA	T/C	./.	NA	NA	NA	NA	no	rs7412: no call (GT ./.)
+vcf_hg38_unphased.vcf	hg38	partial	NA	T/.	C/C	NA	NA	NA	NA	no	rs429358: no call (GT 0/.)
+vcf_hg38_unphased.vcf	auto	partial	NA	T/.	C/C	NA	NA	NA	NA	no	rs429358: no call (GT 0/.)
+vcf_hg38_unphased.vcf	hg38	nocall_both	NA	./.	./.	NA	NA	NA	NA	no	rs429358: no call|rs7412: no call
+vcf_hg38_unphased.vcf	auto	nocall_both	NA	./.	./.	NA	NA	NA	NA	no	rs429358: no call|rs7412: no call
+vcf_hg38_phased.vcf	hg38	p_e2e4	ε2/ε4	T/C	T/C	0	1	0	1	yes	
+vcf_hg38_phased.vcf	hg38	p_e1e3	ε1/ε3	T/C	T/C	1	0	1	0	yes	
+vcf_hg38_phased.vcf	hg38	p_e1e3_b	ε1/ε3	T/C	T/C	1	0	1	0	yes	
+vcf_hg38_phased.vcf	hg38	p_e2e4_b	ε2/ε4	T/C	T/C	0	1	0	1	yes	
+vcf_hg38_phased.vcf	hg38	p_e3e4	ε3/ε4	T/C	C/C	0	0	1	1	yes	
+vcf_hg38_phased.vcf	hg38	p_e2e2	ε2/ε2	T/T	T/T	0	2	0	0	yes	
+vcf_hg38_phased.vcf	hg38	p_ps_same	ε1/ε3	T/C	T/C	1	0	1	0	yes	
+vcf_hg38_phased.vcf	hg38	p_ps_diff	ε2/ε4	T/C	T/C	0	1	0	1	no	phase sets differ|ε2/ε4 or ε1/ε3
+vcf_hg38_phased.vcf	hg38	p_ps_one	ε2/ε4	T/C	T/C	0	1	0	1	no	phase sets differ|ε2/ε4 or ε1/ε3
+vcf_hg38_phased.vcf	hg38	p_mixed	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_phased.vcf	hg38	p_hom_diffps	ε1/ε4	C/C	T/C	1	0	0	1	no	
+vcf_hg38_phased.vcf	hg38	p_nocall	NA	./.	C/C	NA	NA	NA	NA	no	rs429358: no call (GT .|.)
+vcf_hg19_b37.vcf	hg19	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg19_b37.vcf	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg19_b37.vcf	hg19	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg19_b37.vcf	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg19_b37.vcf	hg19	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg19_b37.vcf	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg19_b37.vcf	hg19	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg19_b37.vcf	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg19_b37.vcf	hg19	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg19_b37.vcf	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg19_b37.vcf	hg19	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg19_b37.vcf	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_table.vcf	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_table.vcf	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_table.vcf	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_table.vcf	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_table.vcf	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_table.vcf	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_table.vcf	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_table.vcf	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_table.vcf	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_table.vcf	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_table.vcf	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_table.vcf	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hs1.vcf	hs1	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hs1.vcf	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hs1.vcf	hs1	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hs1.vcf	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hs1.vcf	hs1	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hs1.vcf	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hs1.vcf	hs1	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hs1.vcf	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hs1.vcf	hs1	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hs1.vcf	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hs1.vcf	hs1	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hs1.vcf	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_table_gzip.vcf.gz	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_table_gzip.vcf.gz	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_table_gzip.vcf.gz	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_table_gzip.vcf.gz	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_table_gzip.vcf.gz	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_table_gzip.vcf.gz	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_table_gzip.vcf.gz	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_table_gzip.vcf.gz	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_table_gzip.vcf.gz	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_table_gzip.vcf.gz	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_table_gzip.vcf.gz	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_table_gzip.vcf.gz	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_refseq.vcf	hg38	acc_e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_refseq.vcf	auto	acc_e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_refseq.vcf	hg38	acc_e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_refseq.vcf	auto	acc_e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg19_accession_nolength.vcf	hg19	acc_e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg19_accession_nolength.vcf	auto	acc_e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+gvcf_gatk_hg38.g.vcf	hg38	NA12878	ε3/ε4	T/C	C/C	0	0	1	1	no	
+gvcf_gatk_hg38.g.vcf	auto	NA12878	ε3/ε4	T/C	C/C	0	0	1	1	no	
+gvcf_bcftools_hg38.g.vcf	hg38	S1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+gvcf_bcftools_hg38.g.vcf	auto	S1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+gvcf_deepvariant_hg38.g.vcf	hg38	DV1	ε4/ε4	C/C	C/C	0	0	0	2	no	
+gvcf_deepvariant_hg38.g.vcf	auto	DV1	ε4/ε4	C/C	C/C	0	0	0	2	no	
+gvcf_gap_hg38.g.vcf	hg38	G1	NA	T/T	./.	NA	NA	NA	NA	no	rs7412: not covered by gVCF
+gvcf_gap_hg38.g.vcf	auto	G1	NA	T/T	./.	NA	NA	NA	NA	no	rs7412: not covered by gVCF
+gvcf_nocall_block_hg38.g.vcf	hg38	G2	NA	T/T	./.	NA	NA	NA	NA	no	rs7412: no call (GT ./.)
+gvcf_nocall_block_hg38.g.vcf	auto	G2	NA	T/T	./.	NA	NA	NA	NA	no	rs7412: no call (GT ./.)
+gvcf_zero_depth_hg38.g.vcf	hg38	G3	NA	./.	./.	NA	NA	NA	NA	no	rs429358: zero depth in gVCF reference block|rs7412: zero depth in gVCF reference block
+gvcf_zero_depth_hg38.g.vcf	auto	G3	NA	./.	./.	NA	NA	NA	NA	no	rs429358: zero depth in gVCF reference block|rs7412: zero depth in gVCF reference block
+gvcf_strelka_hg38.g.vcf	hg38	ST1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+gvcf_strelka_hg38.g.vcf	auto	ST1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_wildtype_explicit_hg38.vcf	hg38	W1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_wildtype_explicit_hg38.vcf	auto	W1	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_wildtype_explicit_hg38.vcf	hg38	W2	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_wildtype_explicit_hg38.vcf	auto	W2	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_wildtype_absent_hg38.vcf	hg38	A1	ε3/ε3	T/T	C/C	0	0	2	0	no	rs429358: not in VCF; assumed reference (T/T)|rs7412: not in VCF; assumed reference (C/C)
+vcf_wildtype_absent_hg38.vcf	auto	A1	ε3/ε3	T/T	C/C	0	0	2	0	no	rs429358: not in VCF; assumed reference (T/T)|rs7412: not in VCF; assumed reference (C/C)
+vcf_wildtype_absent_hg38.vcf	hg38	A2	ε3/ε3	T/T	C/C	0	0	2	0	no	rs429358: not in VCF; assumed reference (T/T)|rs7412: not in VCF; assumed reference (C/C)
+vcf_wildtype_absent_hg38.vcf	auto	A2	ε3/ε3	T/T	C/C	0	0	2	0	no	rs429358: not in VCF; assumed reference (T/T)|rs7412: not in VCF; assumed reference (C/C)
+vcf_no_chr19_hg38.vcf	hg38	N1	NA	./.	./.	NA	NA	NA	NA	no	rs429358: VCF has no chr19 records|rs7412: VCF has no chr19 records
+vcf_no_chr19_hg38.vcf	auto	N1	NA	./.	./.	NA	NA	NA	NA	no	rs429358: VCF has no chr19 records|rs7412: VCF has no chr19 records
+vcf_no_contig_hg38.vcf	hg38	U1	ε3/ε4	T/C	C/C	0	0	1	1	no	rs7412: not in VCF; assumed reference (C/C)
+vcf_no_contig_hg38.vcf	auto	U1	NA	T/C	./.	NA	NA	NA	NA	no	rs7412: not in VCF and reference build not confirmed|hg38 assumed
+vcf_no_contig_both_hg38.vcf	hg38	U2	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_no_contig_both_hg38.vcf	auto	U2	ε3/ε4	T/C	C/C	0	0	1	1	no	hg38 assumed
+vcf_crlf_hg38.vcf	hg38	C1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_crlf_hg38.vcf	auto	C1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_crlf_hg38.vcf	hg38	C2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_crlf_hg38.vcf	auto	C2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_filter_hg38.vcf	hg38	F1	ε3/ε4	T/C	C/C	0	0	1	1	no	rs429358: FILTER=LowQual
+vcf_ploidy_hg38.vcf	hg38	H1	NA	C	C/C	NA	NA	NA	NA	no	rs429358: non-diploid genotype (1)
+vcf_ploidy_hg38.vcf	hg38	H2	NA	T/T/C	C/C	NA	NA	NA	NA	no	rs429358: non-diploid genotype (0/0/1)
+vcf_ref_mismatch_hg38.vcf	hg38	R1	NA	./.	C/C	NA	NA	NA	NA	no	rs429358: REF mismatch (expected T, found G)
+vcf_format_variants_hg38.vcf	hg38	V1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_format_variants_hg38.vcf	hg38	V2	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_no_gt_hg38.vcf	hg38	NG1	NA	./.	C/C	NA	NA	NA	NA	no	rs429358: no GT field
+indel_hg38.vcf	hg38	i_del_het	NA	T/del	C/C	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion
+indel_hg38.vcf	hg38	i_del_hom	NA	del/del	C/C	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion
+indel_hg38.vcf	hg38	i_ins_het	ε3/ε3	T/T	C/C	0	0	2	0	no	
+indel_hg38.vcf	hg38	i_ins_snp	ε3/ε4	T/C	C/C	0	0	1	1	no	
+indel_hg38.vcf	hg38	i_del_after_7412	ε3/ε3	T/T	C/C	0	0	2	0	no	
+indel_hg38.vcf	hg38	i_del_and_snp	NA	C/del	C/C	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion
+indel_hg38.vcf	hg38	i_snp_7412_del_after	ε2/ε3	T/T	T/C	0	1	1	0	no	
+indel_star_hg38.vcf	hg38	s_star_het	NA	T/del	C/C	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion
+indel_star_hg38.vcf	hg38	s_star_c	NA	C/del	C/C	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion
+indel_star_hg38.vcf	hg38	s_snp_only	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+indel_star_hg38.vcf	hg38	s_ref	ε3/ε3	T/T	C/C	0	0	2	0	no	
+indel_mnp_complex_hg38.vcf	hg38	m_mnp	ε3/ε4	T/C	C/C	0	0	1	1	no	
+indel_mnp_complex_hg38.vcf	hg38	m_mnp7412	ε2/ε2	T/T	T/T	0	2	0	0	no	
+indel_mnp_complex_hg38.vcf	hg38	m_complex	NA	T/?	C/C	NA	NA	NA	NA	no	rs429358: unresolvable allele
+multiallelic_hg38.vcf	hg38	ma_1_2	NA	C/G	C/C	NA	NA	NA	NA	no	rs429358: unexpected allele G
+multiallelic_hg38.vcf	hg38	ma_0_1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+multiallelic_hg38.vcf	hg38	ma_0_2	NA	T/G	C/C	NA	NA	NA	NA	no	rs429358: unexpected allele G
+multiallelic_hg38.vcf	hg38	ma_2_2	NA	G/G	C/C	NA	NA	NA	NA	no	rs429358: unexpected allele G
+split_multiallelic_hg38.vcf	hg38	sp_c_het	ε3/ε4	T/C	C/C	0	0	1	1	no	
+split_multiallelic_hg38.vcf	hg38	sp_c_g	NA	C/G	C/C	NA	NA	NA	NA	no	rs429358: unexpected allele G
+split_multiallelic_hg38.vcf	hg38	sp_conflict	NA	?/?	C/C	NA	NA	NA	NA	no	rs429358: conflicting overlapping records
+sv_del_hg38.vcf	hg38	SV1	NA	T/del	C/del	NA	NA	NA	NA	no	rs429358: allele deleted by overlapping deletion|rs7412: allele deleted by overlapping deletion
+vcf_hg38_multiblock.vcf.gz	hg38	B1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_multiblock.vcf.gz	auto	B1	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_multiblock.vcf.gz	hg38	B2	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_multiblock.vcf.gz	auto	B2	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_multiblock.vcf.gz	hg38	B3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_multiblock.vcf.gz	auto	B3	ε2/ε3	T/T	T/C	0	1	1	0	no	

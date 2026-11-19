@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	i_del_het	i_del_hom	i_ins_het	i_ins_snp	i_del_after_7412	i_del_and_snp	i_snp_7412_del_after
+chr19	44908680	.	CGTGT	C	60	PASS	.	GT	0/1	1/1	0/0	0/0	0/0	0/1	0/0
+chr19	44908684	rs429358	T	C	60	PASS	.	GT	0/0	0/0	0/0	0/1	0/0	0/1	0/0
+chr19	44908684	.	T	TGC	60	PASS	.	GT	0/0	0/0	0/1	0/1	0/0	0/0	0/0
+chr19	44908822	rs7412	C	T	60	PASS	.	GT	0/0	0/0	0/0	0/0	0/0	0/0	0/1
+chr19	44908822	.	CG	C	60	PASS	.	GT	0/0	0/0	0/0	0/0	0/1	0/0	0/1

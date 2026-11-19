@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	V1	V2
+chr19	44908684	rs429358	T	C	60	PASS	.	DP:GT	20:0/1	18:0/0
+chr19	44908822	rs7412	c	t	60	PASS	.	GT:AD:DP	0/0	0/1:10,9:19

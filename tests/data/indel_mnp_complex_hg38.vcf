@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	m_mnp	m_mnp7412	m_complex
+chr19	44908683	.	GT	GC	60	PASS	.	GT	0/1	0/0	0/0
+chr19	44908683	.	GTG	A	60	PASS	.	GT	0/0	0/0	0/1
+chr19	44908821	.	GC	AT	60	PASS	.	GT	0/0	1/1	0/0

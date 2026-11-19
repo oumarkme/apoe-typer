@@ -1,0 +1,4 @@
+#build	columns...
+hg19	sample	APOE	rs429358 (chr19:45411941)	rs7412 (chr19:45412079)	e1_dose	e2_dose	e3_dose	e4_dose	phased	note
+hg38	sample	APOE	rs429358 (chr19:44908684)	rs7412 (chr19:44908822)	e1_dose	e2_dose	e3_dose	e4_dose	phased	note
+hs1	sample	APOE	rs429358 (chr19:47733380)	rs7412 (chr19:47733518)	e1_dose	e2_dose	e3_dose	e4_dose	phased	note

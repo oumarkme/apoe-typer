@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	p_e2e4	p_e1e3	p_e1e3_b	p_e2e4_b	p_e3e4	p_e2e2	p_ps_same	p_ps_diff	p_ps_one	p_mixed	p_hom_diffps	p_nocall
+chr19	44908684	rs429358	T	C	100	PASS	.	GT:PS	0|1:.	1|0:.	0|1:.	1|0:.	0|1:.	0|0:.	1|0:100	1|0:100	1|0:100	1|0:.	1|1:100	.|.:.
+chr19	44908822	rs7412	C	T	100	PASS	.	GT:PS	1|0:.	1|0:.	0|1:.	0|1:.	0|0:.	1|1:.	1|0:100	1|0:200	1|0:.	1/0:.	0|1:200	0|0:.

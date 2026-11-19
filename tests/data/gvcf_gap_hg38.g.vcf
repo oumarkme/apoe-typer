@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##ALT=<ID=NON_REF,Description="Represents any possible alternative allele not already represented at this location by REF and ALT">
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum DP observed within the GVCF block">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
+##GVCFBlock0-20=minGQ=0(inclusive),maxGQ=20(exclusive)
+##GVCFBlock20-100=minGQ=20(inclusive),maxGQ=100(exclusive)
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##contig=<ID=chr19,length=58617616>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	G1
+chr19	44908600	.	C	<NON_REF>	.	.	END=44908800	GT:DP:GQ:MIN_DP:PL	0/0:30:90:25:0,75,1125
+chr19	44908850	.	G	<NON_REF>	.	.	END=44909000	GT:DP:GQ:MIN_DP:PL	0/0:31:90:26:0,78,1170
