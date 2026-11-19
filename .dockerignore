@@ -1,0 +1,22 @@
+# Build output and version control
+target/
+.git/
+.claude/
+
+# Images, Windows binaries and wine artefacts (GUI is not needed in the image)
+**/*.png
+**/*.exe
+**/*.dll
+**/*.pdb
+wine/
+.wine/
+**/.wine*/
+
+# Test artefacts and editor/OS noise
+test-output/
+**/*.log
+**/*.tmp
+**/*.orig
+**/*.rej
+**/*.swp
+.DS_Store
