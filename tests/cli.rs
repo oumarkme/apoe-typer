@@ -1,4 +1,4 @@
-//! CLI-level integration tests for the `apoe-typer` binary (SPEC section 13).
+//! CLI-level integration tests for the `apoe-typer` binary (docs/SPEC.md section 13).
 
 use std::fs;
 use std::io::Write;

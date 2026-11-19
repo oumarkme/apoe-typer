@@ -149,7 +149,7 @@ fn tc_pair(site: &SiteCall) -> Option<(u8, u8)> {
     }
 }
 
-/// Combines the two site calls into an APOE genotype (see SPEC "APOE calling").
+/// Combines the two site calls into an APOE genotype (see docs/SPEC.md section 7).
 pub fn call_apoe(rs429358: &SiteCall, rs7412: &SiteCall) -> ApoeCall {
     let none = ApoeCall {
         genotype: None,
@@ -295,7 +295,7 @@ pub fn ref_allele_at(ref_seq: &[u8], pos: u64, target: u64, build_ref: u8) -> Al
     }
 }
 
-/// What one ALT allele shows at `target` (see SPEC section 4).
+/// What one ALT allele shows at `target` (see docs/SPEC.md section 4).
 pub fn allele_at_target(
     ref_seq: &[u8],
     alt: &[u8],
@@ -471,7 +471,7 @@ pub fn assumed_reference(ref_base: u8) -> SiteCall {
     }
 }
 
-/// Combines all observations overlapping one site for one sample (SPEC section 5).
+/// Combines all observations overlapping one site for one sample (docs/SPEC.md section 5).
 pub fn combine_observations(obs: &[Observation], ref_base: u8) -> SiteCall {
     let called: Vec<&Observation> = obs.iter().filter(|o| o.kind == ObsKind::Called).collect();
     if called.is_empty() {

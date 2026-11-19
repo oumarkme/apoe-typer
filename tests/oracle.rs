@@ -1,4 +1,4 @@
-//! Agreement test against the reference script's `callAPOE()` oracle (SPEC section 7, 13).
+//! Agreement test against the reference script's `callAPOE()` oracle (docs/SPEC.md sections 7 and 13).
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -74,7 +74,7 @@ impl SampleResult {
 pub struct AnalysisResult {
     pub build: Build,
     pub build_source: BuildSource,
-    /// True if the input looks like a gVCF (see SPEC).
+    /// True if the input looks like a gVCF (see docs/SPEC.md section 2.2).
     pub is_gvcf: bool,
     /// One entry per VCF sample column, in header order.
     pub samples: Vec<SampleResult>,
@@ -264,7 +264,7 @@ fn analyze_lines(
     })
 }
 
-/// The call for a site that no record overlaps (SPEC section 6).
+/// The call for a site that no record overlaps (docs/SPEC.md section 6).
 fn absent_site_call(
     site: &SiteRecords,
     is_gvcf: bool,

@@ -2,7 +2,7 @@
 """Generate the VCF/gVCF test fixtures and the expected-call matrix.
 
 This script is the source of truth for tests/data. Every expected value below
-was derived by hand from the specification (see README.md "判讀邏輯"); the Rust
+was derived by hand from the specification (see docs/SPEC.md and README.md section 9); the Rust
 tests only read the generated files.
 
 Requirements: python3, bgzip (htslib) and bcftools on PATH.

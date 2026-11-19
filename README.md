@@ -426,6 +426,8 @@ APOE 欄中，ε 數字較小者在前（例如 `ε2/ε4`，不寫成 `ε4/ε2`�
 
 ## 9. 判讀邏輯
 
+完整、逐條的規則（含各種邊界情況）見 [docs/SPEC.md](docs/SPEC.md)；本節為摘要。
+
 ### 9.1 單倍型與 phased
 
 - 當兩個位點皆為 phased，且位於**同一個 phase set**，兩個單倍型即可直接決定。`phased` 欄為 `yes`。
@@ -621,6 +623,7 @@ apoe-typer/
 │   ├── test-wine.sh           Windows 測試（wine）
 │   └── gui-e2e-wine.sh        GUI 端對端測試（wine + Xvfb + xdotool）
 └── docs/
+    ├── SPEC.md                設計規格（英文；判讀規則與輸入輸出的完整契約）
     └── gui-screenshot.png     README 用的 GUI 截圖
 ```
 

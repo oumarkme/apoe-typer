@@ -52,7 +52,7 @@ pub fn header_for(build: Build) -> Vec<String> {
     ]
 }
 
-/// Builds the report table for an analysis result (see SPEC "Output").
+/// Builds the report table for an analysis result (see docs/SPEC.md section 9).
 pub fn build_table(result: &AnalysisResult) -> Table {
     let rows = result
         .samples
