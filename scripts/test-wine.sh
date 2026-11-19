@@ -5,10 +5,13 @@
 #   e.g. scripts/test-wine.sh --test cli
 #
 # Environment overrides:
-#   WINEPREFIX  wine prefix directory (default: /tmp/apoe-wine-test)
+#   WINEPREFIX  wine prefix directory (default: $HOME/.cache/apoe-typer/wine-test)
 set -euo pipefail
 
-export WINEPREFIX="${WINEPREFIX:-/tmp/apoe-wine-test}"
+# wine refuses to create a prefix whose parent directory is not owned by the
+# user (e.g. directly under /tmp), so the default lives under $HOME.
+export WINEPREFIX="${WINEPREFIX:-$HOME/.cache/apoe-typer/wine-test}"
+mkdir -p "$(dirname "$WINEPREFIX")"
 export WINEDEBUG=-all
 export WINEDLLOVERRIDES="mscoree,mshtml="
 
