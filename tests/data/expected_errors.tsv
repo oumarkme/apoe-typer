@@ -15,4 +15,5 @@ err_space_delimited.vcf	hg38	tab
 err_truncated_record.vcf	hg38	line|columns
 err_sample_count.vcf	hg38	line|columns
 err_bcf.bcf	hg38	BCF
+err_truncated_gzip.vcf.gz	hg38	I/O error
 does_not_exist.vcf	hg38	cannot open

@@ -497,6 +497,40 @@ expect(F, ["hg38", "auto"], "B1", "ε3/ε4", "T/C", "C/C")
 expect(F, ["hg38", "auto"], "B2", "ε4/ε4", "C/C", "C/C")
 expect(F, ["hg38", "auto"], "B3", "ε2/ε3", "T/T", "T/C")
 
+# ---------------------------------------------------------------- encodings and container quirks
+def table_expect(fname, refs):
+    for s, _, _, apoe, d1, d2 in TABLE:
+        expect(fname, refs, s, apoe, d1, d2, notes=(AMBIG,) if apoe == "ε2/ε4" else ())
+
+
+# UTF-8 BOM before ##fileformat (files saved by Windows editors).
+F = "vcf_bom_hg38.vcf"
+write(F, "﻿" + open(os.path.join(OUT, "vcf_hg38_table.vcf"), encoding="utf-8").read())
+table_expect(F, ["hg38", "auto"])
+
+# gzip followed by zero padding (ignored silently) or by non-gzip garbage
+# (decoded data kept; a warning is emitted).
+with open(os.path.join(OUT, "vcf_hg38_table_gzip.vcf.gz"), "rb") as fh:
+    gz = fh.read()
+with open(os.path.join(OUT, "vcf_hg38_gzip_zero_padding.vcf.gz"), "wb") as fh:
+    fh.write(gz + b"\0" * 512)
+table_expect("vcf_hg38_gzip_zero_padding.vcf.gz", ["hg38", "auto"])
+with open(os.path.join(OUT, "vcf_hg38_gzip_trailing_garbage.vcf.gz"), "wb") as fh:
+    fh.write(gz + b"trailing garbage\n")
+table_expect("vcf_hg38_gzip_trailing_garbage.vcf.gz", ["hg38", "auto"])
+# A gzip member cut short is still a fatal I/O error.
+with open(os.path.join(OUT, "err_truncated_gzip.vcf.gz"), "wb") as fh:
+    fh.write(gz[: len(gz) // 2])
+
+# VCF 4.4 explicit phasing prefix on the first allele ("|0|1", "/0/1", "|1").
+F = "vcf_hg38_gt_prefix_v44.vcf"
+text = vcf([PASS_FLT, GT_FMT, contig()], ["g44_phased", "g44_unphased", "g44_haploid"],
+           gt_records("chr19", P1, P2, ["|0|1", "/0/1", "|1"], ["|1|0", "/0/1", "0/0"]))
+write(F, text.replace("##fileformat=VCFv4.2", "##fileformat=VCFv4.4", 1))
+expect(F, ["hg38"], "g44_phased", "ε2/ε4", "T/C", "T/C", phased="yes")
+expect(F, ["hg38"], "g44_unphased", "ε2/ε4", "T/C", "T/C", notes=(AMBIG,))
+expect(F, ["hg38"], "g44_haploid", "NA", "C", "C/C", notes=("rs429358: non-diploid genotype",))
+
 # ---------------------------------------------------------------- fatal errors
 write("err_sites_only.vcf", vcf([PASS_FLT, contig()], [], [
     ("chr19", P1, "rs429358", "T", "C", 50, "PASS", "."),
@@ -520,9 +554,10 @@ write("err_sample_count.vcf", vcf([PASS_FLT, GT_FMT, contig()], ["S1", "S2"], [
     ("chr19", P1, "rs429358", "T", "C", 50, "PASS", ".", "GT", "0/1"),
 ]))
 ERRORS.append(("err_sample_count.vcf", "hg38", "line|columns"))
-subprocess.run(["bcftools", "view", "-Ob", "-o", os.path.join(OUT, "err_bcf.bcf"),
+subprocess.run(["bcftools", "view", "--no-version", "-Ob", "-o", os.path.join(OUT, "err_bcf.bcf"),
                 os.path.join(OUT, "vcf_hg38_table.vcf")], check=True)
 ERRORS.append(("err_bcf.bcf", "hg38", "BCF"))
+ERRORS.append(("err_truncated_gzip.vcf.gz", "hg38", "I/O error"))
 ERRORS.append(("does_not_exist.vcf", "hg38", "cannot open"))
 
 # ---------------------------------------------------------------- matrix files

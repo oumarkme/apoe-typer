@@ -235,7 +235,8 @@ impl Gt {
     }
 }
 
-/// Parses a GT string such as `0/1`, `1|0`, `./.`, `1`, `0/0/1`, `10/2`.
+/// Parses a GT string such as `0/1`, `1|0`, `./.`, `1`, `0/0/1`, `10/2`, or a
+/// VCF 4.4 form with a leading separator (`|0|1`).
 pub fn parse_gt(raw: &str) -> Gt {
     let mut tokens = Vec::new();
     let mut separators = 0usize;
@@ -247,7 +248,11 @@ pub fn parse_gt(raw: &str) -> Gt {
             if c == '|' {
                 pipes += 1;
             }
-            tokens.push(parse_gt_token(&raw[start..i]));
+            // VCF 4.4 allows a separator before the first allele ("|0|1"):
+            // it counts for the phasing decision but starts no token.
+            if i > 0 {
+                tokens.push(parse_gt_token(&raw[start..i]));
+            }
             start = i + 1;
         }
     }
@@ -998,5 +1003,22 @@ mod tests {
         assert_eq!(d(vec![AlleleObs::Missing, AlleleObs::Missing]), "./.");
         assert_eq!(d(vec![b(b'C')]), "C");
         assert_eq!(d(vec![b(b'C'), b(b'T'), b(b'T')]), "T/T/C");
+    }
+
+    #[test]
+    fn vcf_gt_leading_separator_vcf_4_4() {
+        let g = parse_gt("|0|1");
+        assert_eq!(g.raw, "|0|1");
+        assert_eq!(g.tokens, vec![GtToken::Allele(0), GtToken::Allele(1)]);
+        assert!(g.phased);
+        let g = parse_gt("/0/1");
+        assert_eq!(g.tokens.len(), 2);
+        assert!(!g.phased);
+        // Every separator, including the prefix, must be '|' for phased.
+        assert!(!parse_gt("/0|1").phased);
+        assert!(!parse_gt("|0/1").phased);
+        let g = parse_gt("|1");
+        assert_eq!(g.tokens, vec![GtToken::Allele(1)]);
+        assert_eq!(parse_gt("|").tokens, vec![GtToken::Invalid(String::new())]);
     }
 }

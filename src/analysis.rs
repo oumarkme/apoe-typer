@@ -92,10 +92,14 @@ pub fn analyze_reader<R: Read>(
     input: R,
     opts: &AnalysisOptions,
 ) -> Result<AnalysisResult, ApoeError> {
-    vcf::with_text_reader(input, |reader| {
+    let (mut result, trailing) = vcf::with_text_reader_warned(input, |reader| {
         let mut lines = LineReader::new(reader);
         analyze_lines(&mut lines, opts)
-    })
+    })?;
+    if trailing {
+        result.warnings.push(vcf::WARN_GZIP_TRAILING.to_string());
+    }
+    Ok(result)
 }
 
 /// Opens `path` (`ApoeError::Open` on failure) and calls [`analyze_reader`].
@@ -822,5 +826,224 @@ mod tests {
             r.rs429358.alleles,
             vec![AlleleObs::Base(b'T'), AlleleObs::Base(b'C')]
         );
+    }
+
+    /// Reader that returns at most one byte per `read()` call, like a slow pipe.
+    struct OneByte<R>(R);
+
+    impl<R: Read> Read for OneByte<R> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let n = buf.len().min(1);
+            self.0.read(&mut buf[..n])
+        }
+    }
+
+    fn gzip_member(data: &[u8]) -> Vec<u8> {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(data).unwrap();
+        enc.finish().unwrap()
+    }
+
+    fn run_bytes(data: Vec<u8>) -> Result<AnalysisResult, ApoeError> {
+        analyze_reader(Cursor::new(data), &AnalysisOptions::default())
+    }
+
+    fn e4e4_text() -> String {
+        vcf(
+            HG38_CONTIG,
+            &["S"],
+            &[rec(P1, "T", "C", &["1/1"]), rec(P2, "C", "T", &["0/0"])],
+        )
+    }
+
+    #[test]
+    fn snp_lowercase_bases_give_the_same_calls_as_uppercase() {
+        let upper = vcf(
+            HG38_CONTIG,
+            &["S"],
+            &[rec(P1, "T", "C", &["0/1"]), rec(P2, "C", "T", &["0/1"])],
+        );
+        let lower = vcf(
+            HG38_CONTIG,
+            &["S"],
+            &[rec(P1, "t", "c", &["0/1"]), rec(P2, "c", "t", &["0/1"])],
+        );
+        let (u, l) = (run(&upper, None).unwrap(), run(&lower, None).unwrap());
+        assert_eq!(u.samples, l.samples);
+        assert_eq!(l.samples[0].apoe_display(), "ε2/ε4");
+        assert!(l.warnings.is_empty());
+    }
+
+    #[test]
+    fn vcf_space_delimited_chrom_line_is_rejected_mentioning_tab() {
+        let text = "##fileformat=VCFv4.2\n#CHROM POS ID REF ALT QUAL FILTER INFO FORMAT S\n";
+        match run(text, None) {
+            Err(ApoeError::InvalidVcf(m)) => assert!(m.contains("tab"), "{m}"),
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn gvcf_reference_block_with_missing_gt_gives_no_calls_at_both_sites() {
+        let text = vcf(
+            "##ALT=<ID=NON_REF,Description=\"x\">\n##contig=<ID=chr19,length=58617616>\n",
+            &["S"],
+            &[
+                "chr19\t44908600\t.\tC\t<NON_REF>\t.\t.\tEND=44908900\tGT:DP:MIN_DP\t./.:30:25"
+                    .to_string(),
+            ],
+        );
+        let s = run(&text, None).unwrap().samples.remove(0);
+        assert_eq!(s.apoe_display(), "NA");
+        let notes = s.note_text();
+        assert!(notes.contains("rs429358: no call (GT ./.)"), "{notes}");
+        assert!(notes.contains("rs7412: no call (GT ./.)"), "{notes}");
+    }
+
+    #[test]
+    fn phased_ps_on_only_one_site_is_not_joinable() {
+        let text = vcf(
+            HG38_CONTIG,
+            &["S"],
+            &[
+                "chr19\t44908684\t.\tT\tC\t50\tPASS\t.\tGT:PS\t1|0:10".to_string(),
+                "chr19\t44908822\t.\tC\tT\t50\tPASS\t.\tGT\t1|0".to_string(),
+            ],
+        );
+        let r = run(&text, None).unwrap().samples.remove(0);
+        assert!(!r.phased);
+        assert_eq!(apoe_of(&r), "ε2/ε4");
+        let note = r.note_text();
+        assert!(note.contains("phase sets differ"), "{note}");
+        assert!(note.contains("ε2/ε4 or ε1/ε3"), "{note}");
+    }
+
+    #[test]
+    fn vcf_truncated_trailing_sample_subfields_still_parse() {
+        let text = vcf(
+            HG38_CONTIG,
+            &["S"],
+            &[
+                "chr19\t44908684\t.\tT\tC\t50\tPASS\t.\tGT:AD:DP\t0/1".to_string(),
+                "chr19\t44908822\t.\tC\tT\t50\tPASS\t.\tGT:AD:DP\t0/0".to_string(),
+            ],
+        );
+        let r = run(&text, None).unwrap().samples.remove(0);
+        assert_eq!(apoe_of(&r), "ε3/ε4");
+        assert!(r.notes.is_empty());
+    }
+
+    #[test]
+    fn vcf_one_byte_reads_plain_gzip_and_bgzip_input() {
+        let text = e4e4_text();
+        let (head, tail) = text.split_at(text.find("chr19\t44908822").unwrap());
+        let mut bgzip = gzip_member(head.as_bytes());
+        bgzip.extend(gzip_member(tail.as_bytes()));
+        bgzip.extend(gzip_member(b""));
+        for data in [
+            text.clone().into_bytes(),
+            gzip_member(text.as_bytes()),
+            bgzip,
+        ] {
+            let res = analyze_reader(OneByte(Cursor::new(data)), &AnalysisOptions::default());
+            let res = res.unwrap();
+            assert_eq!(res.samples[0].apoe_display(), "ε4/ε4");
+            assert!(res.warnings.is_empty(), "{:?}", res.warnings);
+        }
+    }
+
+    #[test]
+    fn vcf_one_byte_reads_detect_bcf() {
+        let err = analyze_reader(
+            OneByte(Cursor::new(b"BCF\x02\x02rest".to_vec())),
+            &AnalysisOptions::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ApoeError::UnsupportedFormat(_)));
+        let err = analyze_reader(
+            OneByte(Cursor::new(gzip_member(b"BCF\x02\x02rest"))),
+            &AnalysisOptions::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ApoeError::UnsupportedFormat(_)));
+    }
+
+    #[test]
+    fn vcf_bom_is_skipped_in_plain_and_gzip_input() {
+        let mut plain = vec![0xEF, 0xBB, 0xBF];
+        plain.extend(e4e4_text().into_bytes());
+        let gz = gzip_member(&plain);
+        for data in [plain, gz] {
+            let res = run_bytes(data.clone()).unwrap();
+            assert_eq!(res.samples[0].apoe_display(), "ε4/ε4");
+            let res = analyze_reader(OneByte(Cursor::new(data)), &AnalysisOptions::default());
+            assert_eq!(res.unwrap().samples[0].apoe_display(), "ε4/ε4");
+        }
+    }
+
+    #[test]
+    fn vcf_gzip_zero_padding_is_ignored_silently() {
+        let mut data = gzip_member(e4e4_text().as_bytes());
+        data.extend(vec![0u8; 10_000]);
+        let res = run_bytes(data.clone()).unwrap();
+        assert_eq!(res.samples[0].apoe_display(), "ε4/ε4");
+        assert!(res.warnings.is_empty(), "{:?}", res.warnings);
+        let res = analyze_reader(OneByte(Cursor::new(data)), &AnalysisOptions::default());
+        assert!(res.unwrap().warnings.is_empty());
+    }
+
+    #[test]
+    fn vcf_gzip_trailing_garbage_warns_but_calls() {
+        let base = gzip_member(e4e4_text().as_bytes());
+        for tail in [
+            b"garbage".to_vec(),
+            vec![0, 0, 0, b'x'],
+            vec![0x1f],
+            vec![0x1f, 0x00],
+        ] {
+            let mut data = base.clone();
+            data.extend(&tail);
+            let res = run_bytes(data).unwrap();
+            assert_eq!(res.samples[0].apoe_display(), "ε4/ε4");
+            assert!(
+                res.warnings
+                    .contains(&"ignored trailing data after the last gzip member".to_string()),
+                "{tail:?}: {:?}",
+                res.warnings
+            );
+        }
+    }
+
+    #[test]
+    fn vcf_gzip_truncated_member_is_an_io_error() {
+        let mut data = gzip_member(e4e4_text().as_bytes());
+        data.truncate(data.len() - 12);
+        let err = run_bytes(data).unwrap_err();
+        assert!(err.to_string().contains("I/O error"), "{err}");
+        // A truncated second member is fatal too.
+        let mut data = gzip_member(e4e4_text().as_bytes());
+        let mut second = gzip_member(&b"\n".repeat(100));
+        second.truncate(second.len() - 6);
+        data.extend(second);
+        let err = run_bytes(data).unwrap_err();
+        assert!(err.to_string().contains("I/O error"), "{err}");
+    }
+
+    #[test]
+    fn phased_gt_prefix_from_vcf_4_4_is_accepted() {
+        let r = one("|0|1", "|1|0");
+        assert_eq!(apoe_of(&r), "ε2/ε4");
+        assert!(r.phased);
+        assert!(r.notes.is_empty());
+        let r = one("/0/1", "/0/1");
+        assert_eq!(apoe_of(&r), "ε2/ε4");
+        assert!(!r.phased);
+        // A prefix keeps raw text in notes and does not make a haploid call diploid.
+        let r = one("|1", "0/0");
+        assert_eq!(apoe_of(&r), "NA");
+        assert!(r.note_text().contains("non-diploid genotype (|1)"));
     }
 }

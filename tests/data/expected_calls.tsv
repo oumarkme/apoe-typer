@@ -162,3 +162,42 @@ vcf_hg38_multiblock.vcf.gz	hg38	B2	ε4/ε4	C/C	C/C	0	0	0	2	no
 vcf_hg38_multiblock.vcf.gz	auto	B2	ε4/ε4	C/C	C/C	0	0	0	2	no	
 vcf_hg38_multiblock.vcf.gz	hg38	B3	ε2/ε3	T/T	T/C	0	1	1	0	no	
 vcf_hg38_multiblock.vcf.gz	auto	B3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_bom_hg38.vcf	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_bom_hg38.vcf	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_bom_hg38.vcf	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_bom_hg38.vcf	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_bom_hg38.vcf	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_bom_hg38.vcf	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_bom_hg38.vcf	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_bom_hg38.vcf	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_bom_hg38.vcf	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_bom_hg38.vcf	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_bom_hg38.vcf	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_bom_hg38.vcf	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_gzip_zero_padding.vcf.gz	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e2e2	ε2/ε2	T/T	T/T	0	2	0	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e3e3	ε3/ε3	T/T	C/C	0	0	2	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e2e3	ε2/ε3	T/T	T/C	0	1	1	0	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e2e4	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	hg38	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_gzip_trailing_garbage.vcf.gz	auto	e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
+vcf_hg38_gt_prefix_v44.vcf	hg38	g44_phased	ε2/ε4	T/C	T/C	0	1	0	1	yes	
+vcf_hg38_gt_prefix_v44.vcf	hg38	g44_unphased	ε2/ε4	T/C	T/C	0	1	0	1	no	ε2/ε4 or ε1/ε3
+vcf_hg38_gt_prefix_v44.vcf	hg38	g44_haploid	NA	C	C/C	NA	NA	NA	NA	no	rs429358: non-diploid genotype

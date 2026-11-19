@@ -4,9 +4,11 @@
 //! target sites are parsed into owned [`Record`]s; every other line is scanned
 //! without allocating.
 
-use std::io::{BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Read};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use flate2::bufread::MultiGzDecoder;
+use flate2::bufread::GzDecoder;
 
 use crate::error::ApoeError;
 use crate::genotype::{parse_gt, Gt};
@@ -14,33 +16,219 @@ use crate::reference::{is_chr19_name, Build};
 
 const BUF_CAPACITY: usize = 1 << 16;
 
-/// Opens `input` (plain, gzip or multi-member gzip), rejects BCF and hands a
-/// buffered reader of the decompressed text to `f`. The stream is never seeked.
+/// Warning text for bytes that follow the last complete gzip member.
+pub const WARN_GZIP_TRAILING: &str = "ignored trailing data after the last gzip member";
+
+/// Number of leading bytes needed to recognise gzip, BCF and a UTF-8 BOM.
+const MAGIC_LEN: usize = 3;
+const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
+const UTF8_BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
+
+/// A `BufRead` adapter that can look ahead a few bytes without trusting a
+/// single `fill_buf()`: on pipes the first read may return only one byte.
+struct Peekable<R> {
+    inner: R,
+    pending: [u8; MAGIC_LEN],
+    pos: usize,
+    len: usize,
+}
+
+impl<R: BufRead> Peekable<R> {
+    fn new(inner: R) -> Self {
+        Peekable {
+            inner,
+            pending: [0; MAGIC_LEN],
+            pos: 0,
+            len: 0,
+        }
+    }
+
+    /// Returns up to `n` (at most `MAGIC_LEN`) upcoming bytes, reading until
+    /// that many are available or the stream ends. Nothing is consumed.
+    fn peek(&mut self, n: usize) -> io::Result<&[u8]> {
+        let n = n.min(MAGIC_LEN);
+        if self.pos > 0 {
+            self.pending.copy_within(self.pos..self.len, 0);
+            self.len -= self.pos;
+            self.pos = 0;
+        }
+        while self.len < n {
+            let chunk = self.inner.fill_buf()?;
+            if chunk.is_empty() {
+                break;
+            }
+            let take = chunk.len().min(n - self.len);
+            self.pending[self.len..self.len + take].copy_from_slice(&chunk[..take]);
+            self.len += take;
+            self.inner.consume(take);
+        }
+        Ok(&self.pending[..self.len.min(n)])
+    }
+}
+
+impl<R: BufRead> Read for Peekable<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.pos < self.len {
+            let take = buf.len().min(self.len - self.pos);
+            buf[..take].copy_from_slice(&self.pending[self.pos..self.pos + take]);
+            self.pos += take;
+            Ok(take)
+        } else {
+            self.inner.read(buf)
+        }
+    }
+}
+
+impl<R: BufRead> BufRead for Peekable<R> {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        if self.pos < self.len {
+            Ok(&self.pending[self.pos..self.len])
+        } else {
+            self.inner.fill_buf()
+        }
+    }
+
+    fn consume(&mut self, amt: usize) {
+        if self.pos < self.len {
+            self.pos = (self.pos + amt).min(self.len);
+        } else {
+            self.inner.consume(amt);
+        }
+    }
+}
+
+enum GzState<R> {
+    /// Inside a member.
+    Member(GzDecoder<Peekable<R>>),
+    /// Just after a complete member (or before the first one).
+    Between(Peekable<R>),
+    Done,
+}
+
+/// Decodes a gzip container member by member (bgzip = many members). Bytes
+/// after the last member are tolerated: zero padding silently, anything else
+/// with a flag that the caller turns into a warning.
+struct GzMembers<R> {
+    state: GzState<R>,
+    trailing_garbage: Arc<AtomicBool>,
+}
+
+impl<R: BufRead> GzMembers<R> {
+    /// Handles the bytes after a complete member: returns the next state.
+    fn next_member(&mut self, mut src: Peekable<R>) -> (GzState<R>, io::Result<()>) {
+        let head = match src.peek(GZIP_MAGIC.len()) {
+            Ok(h) => h,
+            Err(e) => return (GzState::Between(src), Err(e)),
+        };
+        if head.is_empty() {
+            return (GzState::Done, Ok(()));
+        }
+        if head == GZIP_MAGIC {
+            return (GzState::Member(GzDecoder::new(src)), Ok(()));
+        }
+        let all_zero = head[0] == 0;
+        let mut clean = all_zero;
+        if all_zero {
+            // Zero padding is fine only when nothing but zeros follows.
+            loop {
+                let chunk = match src.fill_buf() {
+                    Ok(c) => c,
+                    Err(e) => return (GzState::Between(src), Err(e)),
+                };
+                if chunk.is_empty() {
+                    break;
+                }
+                if chunk.iter().any(|b| *b != 0) {
+                    clean = false;
+                    break;
+                }
+                let n = chunk.len();
+                src.consume(n);
+            }
+        }
+        if !clean {
+            self.trailing_garbage.store(true, Ordering::Relaxed);
+        }
+        (GzState::Done, Ok(()))
+    }
+}
+
+impl<R: BufRead> Read for GzMembers<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        loop {
+            match std::mem::replace(&mut self.state, GzState::Done) {
+                GzState::Member(mut dec) => match dec.read(buf) {
+                    Ok(0) => self.state = GzState::Between(dec.into_inner()),
+                    Ok(n) => {
+                        self.state = GzState::Member(dec);
+                        return Ok(n);
+                    }
+                    Err(e) => {
+                        self.state = GzState::Member(dec);
+                        return Err(e);
+                    }
+                },
+                GzState::Between(src) => {
+                    let (state, res) = self.next_member(src);
+                    self.state = state;
+                    res?;
+                }
+                GzState::Done => return Ok(0),
+            }
+        }
+    }
+}
+
+/// Opens `input` (plain, gzip or multi-member gzip), rejects BCF, skips a
+/// UTF-8 BOM and hands a buffered reader of the decompressed text to `f`.
+/// The stream is never seeked. See [`with_text_reader_warned`].
 pub fn with_text_reader<R, T, F>(input: R, f: F) -> Result<T, ApoeError>
 where
     R: Read,
     F: FnOnce(&mut dyn BufRead) -> Result<T, ApoeError>,
 {
-    let mut raw = BufReader::with_capacity(BUF_CAPACITY, input);
-    let is_gzip = {
-        let head = raw.fill_buf()?;
-        head.len() >= 2 && head[0] == 0x1f && head[1] == 0x8b
-    };
+    with_text_reader_warned(input, f).map(|(value, _)| value)
+}
+
+/// Like [`with_text_reader`], additionally returning `true` when data after
+/// the last gzip member was ignored (only meaningful once `f` has read the
+/// whole stream).
+pub fn with_text_reader_warned<R, T, F>(input: R, f: F) -> Result<(T, bool), ApoeError>
+where
+    R: Read,
+    F: FnOnce(&mut dyn BufRead) -> Result<T, ApoeError>,
+{
+    let mut raw = Peekable::new(BufReader::with_capacity(BUF_CAPACITY, input));
+    let is_gzip = raw.peek(GZIP_MAGIC.len())? == GZIP_MAGIC;
     if is_gzip {
-        let mut text = BufReader::with_capacity(BUF_CAPACITY, MultiGzDecoder::new(raw));
-        reject_bcf(&mut text)?;
-        f(&mut text)
+        let flag = Arc::new(AtomicBool::new(false));
+        let members = GzMembers {
+            state: GzState::Between(raw),
+            trailing_garbage: Arc::clone(&flag),
+        };
+        let mut text = Peekable::new(BufReader::with_capacity(BUF_CAPACITY, members));
+        prepare_text(&mut text)?;
+        let value = f(&mut text)?;
+        Ok((value, flag.load(Ordering::Relaxed)))
     } else {
-        reject_bcf(&mut raw)?;
-        f(&mut raw)
+        prepare_text(&mut raw)?;
+        Ok((f(&mut raw)?, false))
     }
 }
 
-fn reject_bcf(reader: &mut dyn BufRead) -> Result<(), ApoeError> {
-    if reader.fill_buf()?.starts_with(b"BCF") {
+/// Rejects BCF and skips a UTF-8 byte order mark at the start of the text.
+fn prepare_text<R: BufRead>(text: &mut Peekable<R>) -> Result<(), ApoeError> {
+    let head = text.peek(MAGIC_LEN)?;
+    if head.starts_with(b"BCF") {
         return Err(ApoeError::UnsupportedFormat(
             "BCF (binary VCF) is not supported; convert it with `bcftools view -Ov`".to_string(),
         ));
+    }
+    if head == UTF8_BOM {
+        text.consume(UTF8_BOM.len());
     }
     Ok(())
 }
@@ -665,5 +853,93 @@ mod tests {
         let lines = read_all(&data).unwrap();
         let texts: Vec<&str> = lines.iter().map(|(_, l)| l.as_str()).collect();
         assert_eq!(texts, vec!["first", "second", "third"]);
+    }
+
+    /// Reader that returns at most one byte per `read()` call, like a slow pipe.
+    struct OneByte<R>(R);
+
+    impl<R: Read> Read for OneByte<R> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let n = buf.len().min(1);
+            self.0.read(&mut buf[..n])
+        }
+    }
+
+    fn gz(s: &[u8]) -> Vec<u8> {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(s).unwrap();
+        enc.finish().unwrap()
+    }
+
+    fn slow_lines(data: &[u8]) -> Result<(Vec<String>, bool), ApoeError> {
+        with_text_reader_warned(OneByte(Cursor::new(data.to_vec())), |r| {
+            let mut lr = LineReader::new(r);
+            let mut out = Vec::new();
+            while lr.advance()? {
+                out.push(String::from_utf8_lossy(lr.line()).into_owned());
+            }
+            Ok(out)
+        })
+    }
+
+    #[test]
+    fn vcf_one_byte_reads_plain_gzip_bgzip_and_bcf() {
+        let want = vec![
+            "first".to_string(),
+            "second".to_string(),
+            "third".to_string(),
+        ];
+        let plain = b"first\nsecond\nthird\n".to_vec();
+        assert_eq!(slow_lines(&plain).unwrap(), (want.clone(), false));
+        assert_eq!(slow_lines(&gz(&plain)).unwrap(), (want.clone(), false));
+        let mut bgzip = gz(b"first\nsec");
+        bgzip.extend(gz(b"ond\n"));
+        bgzip.extend(gz(b"third\n"));
+        bgzip.extend(gz(b""));
+        assert_eq!(slow_lines(&bgzip).unwrap(), (want, false));
+        for data in [b"BCF\x02\x02".to_vec(), gz(b"BCF\x02\x02")] {
+            let err = slow_lines(&data).unwrap_err();
+            assert!(matches!(err, ApoeError::UnsupportedFormat(_)));
+        }
+        // Inputs shorter than the magic length still work.
+        assert_eq!(slow_lines(b"a").unwrap().0, vec!["a".to_string()]);
+        assert!(slow_lines(b"").unwrap().0.is_empty());
+    }
+
+    #[test]
+    fn vcf_bom_is_skipped_before_header_parsing() {
+        let body = b"\xEF\xBB\xBF##x=y\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS\n";
+        for data in [body.to_vec(), gz(body)] {
+            let (h, _) = with_text_reader_warned(OneByte(Cursor::new(data)), |r| {
+                read_header(&mut LineReader::new(r))
+            })
+            .unwrap();
+            assert_eq!(h.samples, vec!["S"]);
+        }
+        // A BOM-only file is just empty text.
+        assert!(read_all(b"\xEF\xBB\xBF").unwrap().is_empty());
+    }
+
+    #[test]
+    fn vcf_gzip_trailing_bytes_flag_and_truncation() {
+        let base = gz(b"a\nb\n");
+        let lines = |d: &[u8]| slow_lines(d);
+        let mut padded = base.clone();
+        padded.extend([0u8; 5000]);
+        assert!(!lines(&padded).unwrap().1);
+        let mut garbage = base.clone();
+        garbage.extend(b"zzz");
+        let (l, flag) = lines(&garbage).unwrap();
+        assert_eq!(l, vec!["a", "b"]);
+        assert!(flag);
+        let mut zeros_then_junk = base.clone();
+        zeros_then_junk.extend([0u8, 0, 0, 7]);
+        assert!(lines(&zeros_then_junk).unwrap().1);
+        let mut cut = base.clone();
+        cut.truncate(cut.len() - 5);
+        assert!(lines(&cut).is_err());
     }
 }
