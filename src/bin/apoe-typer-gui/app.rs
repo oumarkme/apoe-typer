@@ -25,9 +25,9 @@ use windows_sys::Win32::UI::Controls::{
     InitCommonControlsEx, HDM_GETITEMCOUNT, ICC_LISTVIEW_CLASSES, ICC_STANDARD_CLASSES,
     INITCOMMONCONTROLSEX, LVCFMT_LEFT, LVCF_FMT, LVCF_TEXT, LVCF_WIDTH, LVCOLUMNW, LVIF_TEXT,
     LVITEMW, LVM_DELETEALLITEMS, LVM_DELETECOLUMN, LVM_GETCOLUMNWIDTH, LVM_GETHEADER,
-    LVM_INSERTCOLUMNW, LVM_INSERTITEMW, LVM_SETCOLUMNWIDTH, LVM_SETEXTENDEDLISTVIEWSTYLE,
-    LVM_SETITEMTEXTW, LVS_EX_DOUBLEBUFFER, LVS_EX_FULLROWSELECT, LVS_EX_GRIDLINES, LVS_REPORT,
-    LVS_SHOWSELALWAYS, WC_LISTVIEWW,
+    LVM_GETSTRINGWIDTHW, LVM_INSERTCOLUMNW, LVM_INSERTITEMW, LVM_SETCOLUMNWIDTH,
+    LVM_SETEXTENDEDLISTVIEWSTYLE, LVM_SETITEMCOUNT, LVM_SETITEMTEXTW, LVS_EX_DOUBLEBUFFER,
+    LVS_EX_FULLROWSELECT, LVS_EX_GRIDLINES, LVS_REPORT, LVS_SHOWSELALWAYS, WC_LISTVIEWW,
 };
 use windows_sys::Win32::UI::HiDpi::{
     AdjustWindowRectExForDpi, GetDpiForSystem, GetDpiForWindow, SystemParametersInfoForDpi,
@@ -307,7 +307,11 @@ unsafe fn handle_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -
         }
         WM_DPICHANGED => {
             let new_dpi = hiword(wparam).max(96);
+            let old_dpi = app.dpi.get().max(1);
             app.dpi.set(new_dpi);
+            if let Some(c) = app.ctl.get() {
+                rescale_columns(c.list, old_dpi, new_dpi);
+            }
             if let Some(r) = (lparam as *const RECT).as_ref() {
                 SetWindowPos(
                     hwnd,
@@ -909,6 +913,9 @@ unsafe fn fill_list(app: &App, list: HWND, table: Option<&Table>) {
             );
         }
 
+        // Pre-size the item storage so inserting many rows does not reallocate.
+        SendMessageW(list, LVM_SETITEMCOUNT, table.rows.len(), 0);
+
         for (r, row) in table.rows.iter().enumerate() {
             for (c, cell) in row.iter().enumerate() {
                 let mut text = wide(cell);
@@ -927,22 +934,20 @@ unsafe fn fill_list(app: &App, list: HWND, table: Option<&Table>) {
             }
         }
 
-        // Fit each column to the wider of its header and its cells.
-        let last = table.header.len().saturating_sub(1);
-        for i in 0..table.header.len() {
-            SendMessageW(list, LVM_SETCOLUMNWIDTH, i, -1);
-            let content = SendMessageW(list, LVM_GETCOLUMNWIDTH, i, 0) as i32;
-            let width = if i == last {
-                content
-            } else {
-                SendMessageW(list, LVM_SETCOLUMNWIDTH, i, -2);
-                content.max(SendMessageW(list, LVM_GETCOLUMNWIDTH, i, 0) as i32)
-            };
+        // Fit each column to the wider of its header and the first rows. Measuring
+        // only a bounded sample keeps very large tables from freezing the UI thread.
+        for (i, title) in table.header.iter().enumerate() {
+            let mut text_width = string_width(list, title);
+            for row in table.rows.iter().take(WIDTH_SAMPLE_ROWS) {
+                if let Some(cell) = row.get(i) {
+                    text_width = text_width.max(string_width(list, cell));
+                }
+            }
             SendMessageW(
                 list,
                 LVM_SETCOLUMNWIDTH,
                 i,
-                (width + app.px(12)).max(app.px(60)) as LPARAM,
+                (text_width + app.px(24)).max(app.px(60)) as LPARAM,
             );
         }
     }
@@ -956,4 +961,30 @@ unsafe fn fill_list(app: &App, list: HWND, table: Option<&Table>) {
     }
     InvalidateRect(list, null(), 1);
     UpdateWindow(list);
+}
+
+/// Number of leading rows measured when sizing the list view columns.
+const WIDTH_SAMPLE_ROWS: usize = 500;
+
+/// Pixel width of `text` in the current list view font.
+unsafe fn string_width(list: HWND, text: &str) -> i32 {
+    let w = wide(text);
+    SendMessageW(list, LVM_GETSTRINGWIDTHW, 0, w.as_ptr() as LPARAM).max(0) as i32
+}
+
+/// Rescales every list view column width from `old_dpi` to `new_dpi`.
+unsafe fn rescale_columns(list: HWND, old_dpi: u32, new_dpi: u32) {
+    if old_dpi == new_dpi {
+        return;
+    }
+    let header = SendMessageW(list, LVM_GETHEADER, 0, 0) as HWND;
+    if header.is_null() {
+        return;
+    }
+    let count = SendMessageW(header, HDM_GETITEMCOUNT, 0, 0).max(0) as usize;
+    for i in 0..count {
+        let w = SendMessageW(list, LVM_GETCOLUMNWIDTH, i, 0) as i64;
+        let scaled = (w * new_dpi as i64 + old_dpi as i64 / 2) / old_dpi as i64;
+        SendMessageW(list, LVM_SETCOLUMNWIDTH, i, scaled as LPARAM);
+    }
 }
