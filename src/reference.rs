@@ -155,7 +155,9 @@ impl FromStr for Build {
 /// `19`, `chr19` (any letter case) or a known RefSeq/GenBank accession of any build.
 pub fn is_chr19_name(name: &str) -> bool {
     let name = name.trim();
-    name == "19" || name.eq_ignore_ascii_case("chr19") || Build::from_chr19_accession(name).is_some()
+    name == "19"
+        || name.eq_ignore_ascii_case("chr19")
+        || Build::from_chr19_accession(name).is_some()
 }
 
 #[cfg(test)]
@@ -207,15 +209,28 @@ mod tests {
         assert_eq!(Build::from_chr19_length(58_617_616), Some(Build::Hg38));
         assert_eq!(Build::from_chr19_length(61_707_364), Some(Build::Hs1));
         assert_eq!(Build::from_chr19_length(1), None);
-        assert_eq!(Build::from_chr19_accession("NC_000019.9"), Some(Build::Hg19));
-        assert_eq!(Build::from_chr19_accession("NC_000019.10"), Some(Build::Hg38));
+        assert_eq!(
+            Build::from_chr19_accession("NC_000019.9"),
+            Some(Build::Hg19)
+        );
+        assert_eq!(
+            Build::from_chr19_accession("NC_000019.10"),
+            Some(Build::Hg38)
+        );
         assert_eq!(Build::from_chr19_accession("NC_060943.1"), Some(Build::Hs1));
         assert_eq!(Build::from_chr19_accession("chr19"), None);
     }
 
     #[test]
     fn chr19_names() {
-        for n in ["19", "chr19", "CHR19", "Chr19", "NC_000019.10", "CP068259.2"] {
+        for n in [
+            "19",
+            "chr19",
+            "CHR19",
+            "Chr19",
+            "NC_000019.10",
+            "CP068259.2",
+        ] {
             assert!(is_chr19_name(n), "{n}");
         }
         for n in ["1", "chr1", "chr19_KI270938v1_alt", "chr190", "NC_000019"] {

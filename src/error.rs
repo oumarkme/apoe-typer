@@ -10,7 +10,10 @@ use crate::reference::Build;
 #[derive(Debug)]
 pub enum ApoeError {
     /// The input file could not be opened.
-    Open { path: PathBuf, source: std::io::Error },
+    Open {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// I/O failure while reading or writing.
     Io(std::io::Error),
     /// The input is not a usable VCF; the message says why (with a line number when known).
