@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::thread;
+use std::time::Duration;
 
 /// Returns the absolute path of a file under `tests/data`.
 fn data_path(name: &str) -> PathBuf {
@@ -559,5 +560,138 @@ fn cli_stderr_build_info() {
     assert!(
         err.lines().any(|line| line.contains("assumed")),
         "stderr lacks fallback build line: {err}"
+    );
+}
+
+/// Spawns the binary with piped stdin, writes `data` in two parts separated by a
+/// 300 ms pause (the first part is a single byte), and returns the output.
+fn run_cli_slow_pipe(args: &[&str], data: &[u8]) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_apoe-typer"))
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn apoe-typer");
+    let mut stdin = child.stdin.take().expect("child stdin is piped");
+    let first = data[..1].to_vec();
+    let rest = data[1..].to_vec();
+    let feeder = thread::spawn(move || {
+        // The child may exit early (e.g. on a format error); ignore broken pipes.
+        let _ = stdin.write_all(&first);
+        let _ = stdin.flush();
+        thread::sleep(Duration::from_millis(300));
+        let _ = stdin.write_all(&rest);
+        let _ = stdin.flush();
+        // Dropping stdin closes the pipe.
+    });
+    let output = child
+        .wait_with_output()
+        .expect("failed to wait for apoe-typer");
+    feeder.join().expect("stdin feeder thread panicked");
+    output
+}
+
+#[test]
+fn cli_stdin_slow_pipe_gzip() {
+    let path = data_path("vcf_hg38_table_gzip.vcf.gz");
+    let bytes = fs::read(&path).expect("read gzip fixture");
+    let by_path = run_cli(&["-r", "hg38", path_str(&path)], None);
+    assert_eq!(
+        exit_code(&by_path),
+        0,
+        "stderr: {}",
+        stderr_string(&by_path)
+    );
+    let slow = run_cli_slow_pipe(&["-r", "hg38"], &bytes);
+    assert_eq!(exit_code(&slow), 0, "stderr: {}", stderr_string(&slow));
+    assert_eq!(slow.stdout, by_path.stdout, "slow pipe output differs");
+}
+
+#[test]
+fn cli_stdin_slow_pipe_bgzip() {
+    let path = data_path("vcf_hg38_multiblock.vcf.gz");
+    let bytes = fs::read(&path).expect("read bgzip fixture");
+    let by_path = run_cli(&["-r", "hg38", path_str(&path)], None);
+    assert_eq!(
+        exit_code(&by_path),
+        0,
+        "stderr: {}",
+        stderr_string(&by_path)
+    );
+    let slow = run_cli_slow_pipe(&["-r", "hg38"], &bytes);
+    assert_eq!(exit_code(&slow), 0, "stderr: {}", stderr_string(&slow));
+    assert_eq!(slow.stdout, by_path.stdout, "slow pipe output differs");
+}
+
+#[test]
+fn cli_stdin_slow_pipe_bcf() {
+    let path = data_path("err_bcf.bcf");
+    let bytes = fs::read(&path).expect("read BCF fixture");
+    let slow = run_cli_slow_pipe(&["-r", "hg38"], &bytes);
+    assert_eq!(exit_code(&slow), 1);
+    assert!(
+        stderr_string(&slow).contains("BCF"),
+        "stderr lacks BCF: {}",
+        stderr_string(&slow)
+    );
+}
+
+#[test]
+fn cli_bom_input() {
+    let bom = run_file("vcf_bom_hg38.vcf", Some("hg38"));
+    assert_eq!(exit_code(&bom), 0, "stderr: {}", stderr_string(&bom));
+    let plain = run_file("vcf_hg38_table.vcf", Some("hg38"));
+    assert_eq!(exit_code(&plain), 0, "stderr: {}", stderr_string(&plain));
+    assert_eq!(bom.stdout, plain.stdout, "BOM input output differs");
+}
+
+#[test]
+fn cli_gzip_trailing_garbage_warns() {
+    let plain = run_file("vcf_hg38_table.vcf", Some("hg38"));
+    assert_eq!(exit_code(&plain), 0, "stderr: {}", stderr_string(&plain));
+
+    let garbage = run_file("vcf_hg38_gzip_trailing_garbage.vcf.gz", Some("hg38"));
+    assert_eq!(
+        exit_code(&garbage),
+        0,
+        "stderr: {}",
+        stderr_string(&garbage)
+    );
+    assert_eq!(
+        garbage.stdout, plain.stdout,
+        "trailing garbage output differs"
+    );
+    assert!(
+        stderr_string(&garbage)
+            .contains("apoe-typer: warning: ignored trailing data after the last gzip member"),
+        "stderr lacks trailing data warning: {}",
+        stderr_string(&garbage)
+    );
+
+    let padding = run_file("vcf_hg38_gzip_zero_padding.vcf.gz", Some("hg38"));
+    assert_eq!(
+        exit_code(&padding),
+        0,
+        "stderr: {}",
+        stderr_string(&padding)
+    );
+    assert_eq!(padding.stdout, plain.stdout, "zero padding output differs");
+    assert!(
+        !stderr_string(&padding).contains("ignored trailing data"),
+        "zero padding must not warn: {}",
+        stderr_string(&padding)
+    );
+}
+
+#[test]
+fn cli_fallback_build_info_exact() {
+    let out = run_file("vcf_no_contig_both_hg38.vcf", None);
+    assert_eq!(exit_code(&out), 0, "stderr: {}", stderr_string(&out));
+    let err = stderr_string(&out);
+    assert!(
+        err.lines().any(|line| line
+            == "apoe-typer: reference build: hg38 (not specified and not detectable; assumed)"),
+        "stderr lacks exact fallback build line: {err}"
     );
 }

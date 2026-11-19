@@ -105,7 +105,7 @@ fn report_build(result: &AnalysisResult) {
         }
         BuildSource::Fallback => {
             diag(&format!(
-                "reference build: {} (not specified and not detectable from VCF header; assumed)",
+                "reference build: {} (not specified and not detectable; assumed)",
                 result.build.id()
             ));
         }
