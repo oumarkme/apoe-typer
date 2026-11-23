@@ -1,6 +1,6 @@
 [package]
 name = "apoe-typer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "APOE genotyper (rs429358 / rs7412) for VCF and gVCF files, with a CLI and a Win32 GUI"
 default-run = "apoe-typer"
@@ -19,7 +19,6 @@ name = "apoe-typer-gui"
 path = "src/bin/apoe-typer-gui/main.rs"
 
 [dependencies]
-clap = { version = "4.6", features = ["derive"] }
 flate2 = "1.1"
 
 [target.'cfg(windows)'.dependencies]
@@ -43,3 +42,4 @@ embed-resource = "3"
 lto = true
 codegen-units = 1
 strip = true
+opt-level = 3

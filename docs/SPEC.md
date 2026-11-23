@@ -222,8 +222,9 @@ apoe-typer [OPTIONS] [INPUT]
   -h, --help            help
   -v, --version         print "apoe-typer <version>" and exit 0
 ```
-- clap derive; disable clap's default `-V` and define `-v/--version` with `ArgAction::Version`.
-  Invalid `--ref` value -> clap usage error (exit 2) listing hg19, hg38, hs1.
+- Hand-written argument parser (no clap; keeps the exe small). Accepts `-r X`, `-rX`, `--ref X`,
+  `--ref=X`, `--` and `-` (stdin); `-V` is rejected. Invalid arguments and an invalid `--ref` value
+  print a usage error (exit 2) listing hg19, hg38, hs1.
 - stdout carries ONLY the table (TSV, no BOM). Diagnostics go to stderr: warnings as
   `apoe-typer: warning: ...`, build info for auto-detection as `apoe-typer: reference build: hg38 (detected from VCF header)` /
   `(not specified and not detectable; assumed)`, nothing else on success.
@@ -260,13 +261,14 @@ apoe-typer [OPTIONS] [INPUT]
   `runner = "wine"` (see `scripts/test-wine.sh`; GUI end-to-end: `scripts/gui-e2e-wine.sh`).
 - Build: `cargo build --release --target x86_64-pc-windows-gnu` must produce both `.exe`s.
 
-## 12. Docker
+## 12. Windows distribution
 
-Multi-stage: build the CLI with the official Rust image (`cargo build --release --locked --bin apoe-typer`),
-runtime on a slim Debian image, non-root user, `WORKDIR /data`, `ENTRYPOINT ["apoe-typer"]`.
-Must work as `docker run --rm -i IMAGE -r hg38 < in.vcf` (stdin) and
-`docker run --rm -v "$PWD:/data" IMAGE -r hg38 /data/in.vcf -o /data/out.tsv`.
-`.dockerignore` excludes `target/`, `.git/`.
+Only the GUI is shipped. `scripts/build_windows.sh` cross-compiles `apoe-typer-gui` for
+`x86_64-pc-windows-msvc` with cargo-xwin, links the C runtime statically (`+crt-static`), remaps build
+paths, and writes `dist/apoe-typer-gui_v<ver>.exe` plus its `.sha256` (only the newest version stays in
+`dist/`). The exe imports only system DLLs, so no installer, runtime or administrator rights are needed.
+Release profile: `opt-level = 3` (about 15 % faster than `"s"` on a 240 MB VCF, +27 KB), LTO, one
+codegen unit, strip. The CLI is built from source for Linux and pipelines. No Docker image is shipped.
 
 ## 13. Tests
 

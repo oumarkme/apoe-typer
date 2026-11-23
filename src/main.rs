@@ -4,6 +4,7 @@
 //! APOE result row per sample as TSV (or CSV when the output name ends in `.csv`).
 //! Diagnostics go to stderr; stdout carries only the table.
 
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -13,7 +14,6 @@ use apoe_typer::{
     analyze_path, analyze_reader, build_table, write_table, AnalysisOptions, AnalysisResult, Build,
     BuildSource, OutputFormat, Table,
 };
-use clap::Parser;
 
 /// Prefix for every diagnostic line written to stderr.
 const PROG: &str = "apoe-typer";
@@ -53,39 +53,85 @@ EXAMPLES:
   bcftools view -r chr19 sample.vcf.gz | apoe-typer -r hs1
   apoe-typer --version";
 
-/// Parses a reference build name for `-r/--ref` (aliases such as GRCh38 are accepted).
-fn parse_build(value: &str) -> Result<Build, String> {
-    Build::from_name(value).ok_or_else(|| {
-        format!("invalid reference build '{value}' (expected one of: hg19, hg38, hs1)")
-    })
+const USAGE: &str = "Usage: apoe-typer [OPTIONS] [INPUT]";
+
+const OPTIONS: &str = "\
+Arguments:
+  [INPUT]  VCF or gVCF input file (plain, gzip or bgzip). Omitted or \"-\" reads stdin
+
+Options:
+  -r, --ref <BUILD>    Reference genome build: hg19 (GRCh37), hg38 (GRCh38) or hs1 (CHM13v2.0).
+                       Omitted: detect from the VCF header, otherwise assume hg38
+  -o, --output <FILE>  Output file. A .csv name writes CSV, any other name writes TSV.
+                       Omitted: write TSV to stdout
+  -v, --version        Print version and exit
+  -h, --help           Print help (--help for more)";
+
+/// Parsed command line.
+#[derive(Debug, Default)]
+struct Cli {
+    input: Option<PathBuf>,
+    reference: Option<Build>,
+    output: Option<PathBuf>,
 }
 
-#[derive(Parser, Debug)]
-#[command(
-    name = "apoe-typer",
-    version,
-    about = "APOE genotyper for VCF and gVCF files",
-    long_about = LONG_ABOUT,
-    disable_version_flag = true
-)]
-struct Cli {
-    /// VCF or gVCF input file (plain, gzip or bgzip). Omitted or "-" reads stdin.
-    #[arg(value_name = "INPUT")]
-    input: Option<PathBuf>,
+/// What the command line asks for.
+enum Command {
+    Run(Cli),
+    Help { long: bool },
+    Version,
+}
 
-    /// Reference genome build: hg19 (GRCh37), hg38 (GRCh38) or hs1 (CHM13v2.0).
-    /// Omitted: detect from the VCF header, otherwise assume hg38.
-    #[arg(short = 'r', long = "ref", value_name = "BUILD", value_parser = parse_build)]
-    reference: Option<Build>,
-
-    /// Output file. A .csv name writes CSV, any other name writes TSV.
-    /// Omitted: write TSV to stdout.
-    #[arg(short = 'o', long = "output", value_name = "FILE")]
-    output: Option<PathBuf>,
-
-    /// Print version and exit.
-    #[arg(short = 'v', long = "version", action = clap::ArgAction::Version)]
-    version: (),
+/// Parses the arguments (without the program name). `Err` is an invalid-usage message.
+fn parse_args<I: IntoIterator<Item = OsString>>(args: I) -> Result<Command, String> {
+    let mut cli = Cli::default();
+    let mut args = args.into_iter();
+    let mut only_positional = false;
+    while let Some(arg) = args.next() {
+        let text = arg.to_string_lossy().into_owned();
+        // Splits "--opt=value" and "-ovalue"; otherwise the value is the next argument.
+        let (name, inline) = match text.as_str() {
+            "--" if !only_positional => {
+                only_positional = true;
+                continue;
+            }
+            t if only_positional || t == "-" || !t.starts_with('-') => ("", None),
+            t if t.starts_with("--") => match t.split_once('=') {
+                Some((n, v)) => (n, Some(OsString::from(v))),
+                None => (t, None),
+            },
+            t => (&t[..2], (t.len() > 2).then(|| OsString::from(&t[2..]))),
+        };
+        let mut value = |opt: &str| {
+            inline
+                .clone()
+                .or_else(|| args.next())
+                .ok_or_else(|| format!("a value is required for '{opt}' but none was supplied"))
+        };
+        match name {
+            "" => {
+                if cli.input.replace(PathBuf::from(&arg)).is_some() {
+                    return Err(format!("unexpected argument '{text}' found"));
+                }
+            }
+            "-h" => return Ok(Command::Help { long: false }),
+            "--help" => return Ok(Command::Help { long: true }),
+            "-v" | "--version" => return Ok(Command::Version),
+            "-r" | "--ref" => {
+                let v = value("--ref <BUILD>")?;
+                let v = v.to_string_lossy();
+                cli.reference = Some(Build::from_name(&v).ok_or_else(|| {
+                    format!(
+                        "invalid value '{v}' for '--ref <BUILD>': invalid reference build '{v}' \
+                         (expected one of: hg19, hg38, hs1)"
+                    )
+                })?);
+            }
+            "-o" | "--output" => cli.output = Some(PathBuf::from(value("--output <FILE>")?)),
+            _ => return Err(format!("unexpected argument '{name}' found")),
+        }
+    }
+    Ok(Command::Run(cli))
 }
 
 /// Writes a line to stderr, ignoring failures (diagnostics must never panic).
@@ -188,6 +234,24 @@ fn main() -> ExitCode {
         windows_sys::Win32::System::Console::SetConsoleOutputCP(65001);
     }
 
-    let cli = Cli::parse();
-    run(&cli)
+    match parse_args(std::env::args_os().skip(1)) {
+        Ok(Command::Run(cli)) => run(&cli),
+        Ok(Command::Help { long }) => {
+            let intro = if long {
+                LONG_ABOUT
+            } else {
+                "APOE genotyper for VCF and gVCF files"
+            };
+            println!("{intro}\n\n{USAGE}\n\n{OPTIONS}");
+            ExitCode::SUCCESS
+        }
+        Ok(Command::Version) => {
+            println!("{PROG} {}", env!("CARGO_PKG_VERSION"));
+            ExitCode::SUCCESS
+        }
+        Err(msg) => {
+            eprintln!("error: {msg}\n\n{USAGE}\n\nFor more information, try '--help'.");
+            ExitCode::from(2)
+        }
+    }
 }

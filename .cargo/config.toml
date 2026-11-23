@@ -1,3 +1,8 @@
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
 runner = "wine"
+
+# Link the C runtime statically so the Windows exe needs no Visual C++ Redistributable.
+# scripts/build_windows.sh sets RUSTFLAGS (which replaces these entries) with the same flag plus path remapping.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
