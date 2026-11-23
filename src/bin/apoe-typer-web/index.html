@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APOE 基因型判讀</title>
+<style>
+:root{color-scheme:light;--bg:#fff;--fg:#1c2128;--mut:#667;--line:#d0d7de;--acc:#0072B2;--hl:#f1f3f5;--err:#D55E00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Microsoft JhengHei","Noto Sans TC",sans-serif}
+main{max-width:1200px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mut)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+select,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 12px}
+button{cursor:pointer}
+button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+button.s{padding:1px 8px;font-size:.85em}
+button.go{background:var(--acc);border-color:var(--acc);color:#fff}
+button.go:hover:not(:disabled){color:#fff;opacity:.9}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--mut)}
+#drop.over,#drop:focus-visible{border-color:var(--acc);background:var(--hl);outline:none}
+#drop b{color:var(--fg)}
+#files{list-style:none;margin:16px 0 8px;padding:0}
+#files li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+#files .n{font-weight:600;word-break:break-all}
+#files .e{color:var(--err)}
+#files .m{color:var(--mut)}
+#warn{margin:0 0 12px;padding-left:1.2em;color:var(--mut)}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-height:70vh}
+table{border-collapse:collapse;width:100%;white-space:nowrap}
+th,td{padding:6px 10px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:var(--hl);position:sticky;top:0}
+td.note{white-space:normal;min-width:260px;color:var(--mut)}
+tr:last-child td{border-bottom:0}
+footer{margin-top:24px;color:var(--mut);font-size:.9em}
+</style>
+</head>
+<body>
+<main>
+<h1>APOE 基因型判讀</h1>
+<p class="sub">依據 rs429358 與 rs7412，從 VCF / gVCF 判讀 APOE 對偶基因型。可分次加入多個檔案，選好後按「執行」。檔案只在本機處理，不會傳送到網路。</p>
+<div class="row">
+  <label for="ref">參考基因組</label>
+  <select id="ref">
+    <option value="auto">自動偵測 (Auto)</option>
+    <option value="hg19">hg19 (GRCh37)</option>
+    <option value="hg38">hg38 (GRCh38)</option>
+    <option value="hs1">hs1 (T2T-CHM13v2.0)</option>
+  </select>
+  <button id="run" class="go" disabled>執行</button>
+  <button id="clear" disabled>清除全部</button>
+  <span style="flex:1"></span>
+  <button id="tsv" disabled>匯出全部 TSV</button>
+  <button id="csv" disabled>匯出全部 CSV</button>
+</div>
+<div id="drop" tabindex="0" role="button"><b>將一個或多個 VCF / gVCF 檔拖曳到此處</b>，或點選以選擇檔案（可多次加入）<br>選好所有檔案後，按「執行」開始分析。支援 .vcf、.vcf.gz、.g.vcf.gz（BCF 請先轉成 VCF）</div>
+<input id="file" type="file" multiple hidden>
+<ul id="files" role="status"></ul>
+<ul id="warn"></ul>
+<div class="wrap" id="result" hidden><table><thead></thead><tbody></tbody></table></div>
+<footer>本工具供研究與參考使用，不是經驗證的臨床診斷工具。匯出的檔案包含所有已分析檔案的結果，並加上「檔案」與「build」欄。關閉此分頁後，程式會自動結束。</footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SOURCE = {specified: "手動指定", detected: "自動偵測", assumed: "假設為 hg38"};
+const COLS = ["檔案", "sample", "APOE", "rs429358", "rs7412", "e1_dose", "e2_dose", "e3_dose", "e4_dose", "phased", "note", "build"];
+const PARALLEL = 3;
+let items = [], busy = false;   // items: {file, state: ready|wait|run|ok|err, r, error}
+
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+const parse = (tsv) => tsv.replace(/\n$/, "").split("\n").slice(1).map((l) => l.split("\t"));
+
+// Merged rows: [file, ...the ten report columns, build].
+function mergedRows() {
+  return items.filter((i) => i.state === "ok").flatMap((i) =>
+    parse(i.r.tsv).map((c) => [i.file.name, ...c, i.r.build]));
+}
+
+function download(name, text) {
+  const blob = new Blob(["﻿", text], {type: "text/plain;charset=utf-8"});  // BOM: Excel shows ε
+  const a = el("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const csvCell = (v) => /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+function exportAll(ext) {
+  const rows = [COLS, ...mergedRows()];
+  const text = ext === "tsv" ? rows.map((r) => r.join("\t")).join("\n") + "\n"
+                             : rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  download(`apoe_${items.filter((i) => i.state === "ok").length}files.${ext}`, text);
+}
+
+function render() {
+  const list = $("files"), warn = $("warn");
+  list.replaceChildren(); warn.replaceChildren();
+  for (const it of items) {
+    const li = el("li");
+    li.append(el("span", it.file.name, "n"));
+    if (it.state === "ready") li.append(el("span", "待分析", "m"));
+    else if (it.state === "wait") li.append(el("span", "等待中", "m"));
+    else if (it.state === "run") li.append(el("span", "分析中…", "m"));
+    else if (it.state === "err") li.append(el("span", "錯誤：" + it.error, "e"));
+    else {
+      const n = parse(it.r.tsv).length;
+      li.append(el("span", `${n} 個樣本，${it.r.build}（${SOURCE[it.r.source]}）${it.r.gvcf ? "，gVCF" : ""}`, "m"));
+      it.r.warnings.forEach((w) => warn.append(el("li", `${it.file.name}：${w}`)));
+    }
+    const x = el("button", "移除", "s");
+    x.disabled = busy;
+    x.onclick = () => { items = items.filter((i) => i !== it); render(); };
+    li.append(x);
+    list.append(li);
+  }
+  const todo = items.filter((i) => i.state === "ready" || i.state === "err").length;
+  $("run").disabled = busy || todo === 0;
+  $("clear").disabled = busy || items.length === 0;
+  $("ref").disabled = busy;
+  const rows = mergedRows(), table = $("result");
+  const thead = table.querySelector("thead"), tbody = table.querySelector("tbody");
+  thead.replaceChildren(); tbody.replaceChildren();
+  $("tsv").disabled = $("csv").disabled = rows.length === 0;
+  table.hidden = rows.length === 0;
+  if (!rows.length) return;
+  const hr = el("tr"); COLS.forEach((c) => hr.append(el("th", c))); thead.append(hr);
+  const frag = document.createDocumentFragment();
+  for (const cells of rows) {
+    const tr = el("tr");
+    cells.forEach((c, i) => tr.append(el("td", c, i === 10 ? "note" : "")));
+    frag.append(tr);
+  }
+  tbody.append(frag);
+}
+
+async function analyze(it) {
+  it.state = "run"; render();
+  try {
+    const res = await fetch("/api/analyze?ref=" + $("ref").value, {method: "POST", body: it.file});
+    const r = await res.json();
+    if (r.ok) { it.state = "ok"; it.r = r; } else { it.state = "err"; it.error = r.error; }
+  } catch (e) {
+    it.state = "err"; it.error = "無法連線到本機程式，請重新開啟 apoe-typer";
+  }
+  render();
+}
+
+// Runs every file that is not analyzed yet (or failed), a few at a time.
+async function run() {
+  const queue = items.filter((i) => i.state === "ready" || i.state === "err");
+  if (busy || !queue.length) return;
+  busy = true;
+  queue.forEach((i) => { i.state = "wait"; i.error = null; });
+  render();
+  const worker = async () => { for (let it; (it = queue.shift());) await analyze(it); };
+  await Promise.all(Array.from({length: Math.min(PARALLEL, queue.length)}, worker));
+  busy = false; render();
+}
+
+// Adds files to the list (a file already in the list is skipped); nothing runs until "執行".
+function add(list) {
+  if (busy) return;
+  const key = (f) => `${f.name}|${f.size}|${f.lastModified}`;
+  const have = new Set(items.map((i) => key(i.file)));
+  for (const f of Array.from(list || [])) if (!have.has(key(f))) { have.add(key(f)); items.push({file: f, state: "ready"}); }
+  render();
+}
+$("drop").onclick = () => $("file").click();
+$("drop").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
+$("file").onchange = (e) => { add(e.target.files); e.target.value = ""; };
+$("drop").ondragover = (e) => { e.preventDefault(); $("drop").classList.add("over"); };
+$("drop").ondragleave = () => $("drop").classList.remove("over");
+$("drop").ondrop = (e) => { e.preventDefault(); $("drop").classList.remove("over"); add(e.dataTransfer.files); };
+addEventListener("dragover", (e) => e.preventDefault());
+addEventListener("drop", (e) => e.preventDefault());
+// A different build makes the earlier results stale: every file becomes "待分析" again.
+$("ref").onchange = () => { items.forEach((i) => { i.state = "ready"; i.r = null; i.error = null; }); render(); };
+$("run").onclick = run;
+$("clear").onclick = () => { items = []; render(); };
+$("tsv").onclick = () => exportAll("tsv");
+$("csv").onclick = () => exportAll("csv");
+render();
+
+// Heartbeat: the program exits when the tab is closed (or after two minutes of silence).
+const ping = () => fetch("/api/ping").catch(() => {});
+ping(); setInterval(ping, 10000);
+addEventListener("pagehide", () => navigator.sendBeacon("/api/bye"));
+</script>
+</body>
+</html>

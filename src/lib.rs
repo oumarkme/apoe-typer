@@ -1,9 +1,9 @@
 //! apoe-typer: APOE genotyping from the two APOE-defining SNPs
 //! (rs429358 and rs7412) in VCF / gVCF files (plain, gzip or bgzip).
 //!
-//! The library is shared by the command line tool (`apoe-typer`) and the
-//! Win32 GUI (`apoe-typer-gui`). Both produce their report through
-//! [`report::build_table`] so that the CLI output and the GUI export are identical.
+//! The library is shared by the command line tool (`apoe-typer`) and the local web
+//! interface (`apoe-typer-web`). Both produce their report through
+//! [`report::build_table`] so that the CLI output and the web export are identical.
 
 pub mod analysis;
 pub mod error;

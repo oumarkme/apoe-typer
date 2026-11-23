@@ -1,6 +1,6 @@
 # apoe-typer
 
-依據 **rs429358** 與 **rs7412** 兩個 SNP，從 VCF / gVCF 檔判讀 APOE 對偶基因型（ε1–ε4）的工具。提供命令列工具（CLI）與 Windows 圖形介面（GUI）。
+依據 **rs429358** 與 **rs7412** 兩個 SNP，從 VCF / gVCF 檔判讀 APOE 對偶基因型（ε1–ε4）的工具。提供命令列工具（CLI）與 本機網頁介面。
 
 > **注意**：本工具供研究與參考使用，**不是經驗證的臨床診斷工具**。詳見 [限制與注意事項](#12-限制與注意事項)。
 
@@ -18,8 +18,8 @@ apoe-typer 讀取 VCF 或 gVCF 檔，每個樣本輸出一列結果，內容包�
 判讀邏輯依循 [Biomedical-Genetics/apoe-genotyper](https://github.com/Biomedical-Genetics/apoe-genotyper) 的 `callAPOE()`，並對照實驗室的 APOE 對偶基因型判讀表。
 
 - **CLI**：`apoe-typer`，可用於 Linux、Windows 與 pipeline。
-- **GUI**：`apoe-typer-gui.exe`，Win32 介面，僅 Windows 可用（Linux 可透過 wine 執行）。
-- 兩者共用同一套判讀與輸出程式，匯出結果與 CLI 輸出一致。
+- **網頁介面**：`apoe-typer-web`，在本機啟動一個只接受本機連線的網頁伺服器並以預設瀏覽器開啟，Windows、Linux 皆可使用。
+- 兩者共用同一套判讀與輸出程式，網頁匯出的 TSV / CSV 與 CLI 輸出一致。
 
 ---
 
@@ -124,13 +124,15 @@ cargo build --release
 scripts/build_windows.sh
 ```
 
-腳本以 [cargo-xwin](https://github.com/rust-cross/cargo-xwin) 編譯 `x86_64-pc-windows-msvc`，靜態連結 C runtime（`-C target-feature=+crt-static`），產出的 exe 不需要安裝 Visual C++ Redistributable 或任何其他相依套件。編譯路徑已重新對應（`--remap-path-prefix`），exe 內不含家目錄或主機路徑。
+腳本以 [cargo-xwin](https://github.com/rust-cross/cargo-xwin) 編譯 `x86_64-pc-windows-msvc`，靜態連結 C runtime（`-C target-feature=+crt-static`），產出的 exe 不需要安裝 Visual C++ Redistributable 或任何其他相依套件，只匯入 Windows 內建的系統 DLL。編譯路徑已重新對應（`--remap-path-prefix`），exe 內不含家目錄或主機路徑。
 
-產出（含 SHA-256）放在 `dist/`，只發行 GUI：`apoe-typer-gui_v<版本>.exe`（約 0.46 MB）與 `apoe-typer-gui_v<版本>.exe.sha256`。CLI 僅供 Linux 與 pipeline 使用，以 `cargo build --release` 自行建置。
+產出（含 SHA-256）放在 `dist/`，只發行網頁介面：`apoe-typer-web_v<版本>.exe`（約 0.54 MB）與同名的 `.sha256`。CLI 僅供 Linux 與 pipeline 使用，以 `cargo build --release` 自行建置。
 
 需要 Rust 工具鏈、`cargo-xwin`、`lld`，以及 `llvm-rc` 與 `clang-cl`（可由 conda-forge 的 `llvm-tools` 與 `clang` 取得）。專案位於網路磁碟時，請設定本機的 `CARGO_TARGET_DIR`，因為網路磁碟無法執行 build script。
 
 exe 為 64 位元，適用 Windows 10 以上。未經程式碼簽章，首次執行時 SmartScreen 可能顯示警告。
+
+---
 
 ## 5. CLI 用法
 
@@ -266,59 +268,46 @@ apoe-typer: error: reference build mismatch: hg38 was selected but the VCF heade
 
 Windows 使用者不需要安裝 Rust、Python 或其他軟體：
 
-1. 取得 `apoe-typer-gui_v<版本>.exe`，並以同名的 `.sha256` 檔核對。
-2. 直接雙擊執行，不需系統管理員權限。操作方式見 [7. GUI 用法](#7-gui-用法)。
+1. 取得 `apoe-typer-web_v<版本>.exe`，並以同名的 `.sha256` 檔核對。
+2. 直接雙擊執行，不需系統管理員權限。幾秒內會以預設瀏覽器開啟操作頁面，見 [7. 網頁介面](#7-網頁介面)。
 
 建置方式見 [4.2](#42-windows-exe在-linux-上交叉編譯)。
 
 ---
 
-## 7. GUI 用法
+## 7. 網頁介面
 
-> GUI 僅適用於 Windows。Linux 上可透過 wine 執行，但 wine 上的中文需要額外設定字型（見第 10.7 節）。
+執行 `apoe-typer-web`（Windows 上雙擊 exe）。程式在 `127.0.0.1` 的隨機連接埠啟動，只接受本機連線，並以預設瀏覽器開啟頁面；分析時檔案只在本機處理，不會傳送到網路。
 
-執行 `apoe-typer-gui.exe`（可選擇帶入輸入檔路徑作為命令列參數）。
-
-![apoe-typer GUI 執行 hg38 測試檔的畫面](gui-screenshot.png)
-
-*上圖為在 wine（Linux）下，以 Xvfb 執行 GUI 時擷取的畫面，hg38 模式判讀 `tests/data/vcf_hg38_table.vcf`。實際 Windows 上的字型與外觀會略有不同。*
-
-### 7.1 介面元件
+### 7.1 操作
 
 | 元件 | 說明 |
 |---|---|
-| **參考基因組** 下拉選單 | 選項：`自動偵測 (Auto)`（預設）、`hg19 (GRCh37)`、`hg38 (GRCh38)`、`hs1 (T2T-CHM13v2.0)`。 |
-| **輸入檔** 路徑欄 | 直接輸入路徑，或點選 **瀏覽(B)...** 開啟檔案對話框。篩選條件為 VCF / gVCF 與所有檔案。 |
-| **執行(R)** | 執行判讀。在路徑欄按 Enter 亦可執行。 |
-| **結果表格** | 與 CLI 的 TSV 欄位相同。 |
-| **匯出(E)...** | 匯出結果，可選 TSV、CSV 或 TXT。 |
-| **狀態列** | 顯示樣本數、使用的參考基因組與選擇方式、警告與匯出路徑。 |
+| **拖放區** | 將一個或多個 VCF / gVCF 拖到此處，或點選後以檔案對話框選擇（可複選）。可以分次加入，名稱、大小與修改時間相同的檔案不會重複加入。加入檔案不會立即分析。 |
+| **執行** | 選好所有檔案後按此鈕，分析清單中尚未分析（或先前失敗）的檔案，同時最多 3 個。分析進行中，新增、移除、清除與更換參考基因組都會暫時停用。 |
+| **清除全部** | 清空檔案清單與結果。 |
+| **檔案清單** | 每個檔案一列，顯示分析中、樣本數、使用的參考基因組與選擇方式，或該檔案的錯誤訊息（檔案格式錯誤、build 不符等）。某個檔案失敗不會影響其他檔案。**移除** 按鈕把該檔案從清單中拿掉。 |
+| **警告** | 判讀過程的警告（與 CLI 的 stderr 相同），前面標示檔名。 |
+| **結果表格** | 所有成功檔案的合併表格，欄位為 `檔案`、CLI 的十個欄位與 `build`。各檔案的 build 可能不同，因此表頭不含位點座標，改以 `build` 欄記錄。 |
+| **匯出全部 TSV / CSV** | 只有這一組匯出：下載一個檔案，包含所有已分析檔案的結果（合併表格），檔名為 `apoe_<檔案數>files.tsv` 或 `.csv`。檔案為 UTF-8 **含 BOM**，Excel 開啟時 `ε` 會正確顯示。 |
+| **參考基因組** 下拉選單 | `自動偵測 (Auto)`（預設）、`hg19 (GRCh37)`、`hg38 (GRCh38)`、`hs1 (T2T-CHM13v2.0)`。更換選項後，所有檔案會回到「待分析」並清除結果，需再按「執行」，以免不同 build 的結果混在同一個表。 |
 
-### 7.2 快捷鍵
+### 7.2 結束方式
 
-| 快捷鍵 | 功能 |
-|---|---|
-| `Alt+G` | 移到 參考基因組 |
-| `Alt+I` | 移到 輸入檔 路徑欄 |
-| `Alt+B` | 瀏覽 |
-| `Alt+R` | 執行 |
-| `Alt+E` | 匯出 |
-| `Enter` | 執行 |
-| `Tab` / `Shift+Tab` | 切換焦點 |
+關閉瀏覽器分頁後，程式約 5 秒內自動結束；重新整理頁面不會結束程式。若瀏覽器異常關閉，程式在 2 分鐘沒有收到頁面的心跳訊號後結束。分析進行中不會結束。
 
-### 7.3 其他操作
+### 7.3 安全性
 
-- **拖放**：將檔案拖到視窗上即可填入輸入檔路徑。
-- **命令列參數**：`apoe-typer-gui.exe C:\data\in.vcf` 會在啟動時填入路徑。
-- **錯誤對話框**：輸入檔無法讀取、格式錯誤或 build 不符時，以訊息方塊顯示錯誤，視窗仍可繼續操作。
+- 只綁定 `127.0.0.1`。每個請求的 `Host` 必須是本機位址與正確連接埠，`Origin` 若存在也必須相同，否則回應 403，以防範 DNS rebinding 與其他網站的跨站請求。
+- 頁面使用嚴格的 `Content-Security-Policy`，表格內容以 `textContent` 寫入。
+- 不連線到任何外部網站，也不使用外部資源。
 
-### 7.4 匯出
+### 7.4 Linux 與開發
 
-匯出檔為 UTF-8 **含 BOM**，因此 Excel 開啟時 `ε` 會正確顯示。
-
-- TSV：`*.tsv`（預設檔名 `apoe_result.tsv`）
-- CSV：`*.csv`
-- TXT：`*.txt`（內容同 TSV）
+```sh
+cargo run --release --bin apoe-typer-web             # 開啟瀏覽器
+cargo run --release --bin apoe-typer-web -- --no-browser   # 只印出網址
+```
 
 ---
 
@@ -512,33 +501,11 @@ python3 tests/oracle/gen_oracle.py /path/to/apoe-genotyper/scripts/apoe-genotype
 
 `tests/table_md.rs` 確認六種基因型與實驗室判讀表的內容一致。
 
-### 10.6 Windows 測試（wine）
+### 10.6 網頁介面測試
 
-```sh
-scripts/test-wine.sh
-```
+`tests/web.rs` 啟動 `apoe-typer-web --no-browser`，以 HTTP 檢查頁面、分析結果與 CLI 輸出一致、build 不符的錯誤訊息，以及不合法 `Host` / `Origin`（403）與不存在路徑（404）。結束條件、JSON 跳脫與請求解析則由單元測試涵蓋。
 
-此腳本交叉編譯 `x86_64-pc-windows-gnu`，並以 wine 執行與 Linux 相同的測試套件（全部通過）。
-
-- wine prefix 預設位於 `$HOME/.cache/apoe-typer/wine-test`，可用 `WINEPREFIX` 覆寫。
-- wine 不接受直接建立於 `/tmp` 下的 prefix，因此預設位置位於家目錄。
-- 額外參數會傳給 `cargo test`，例如 `scripts/test-wine.sh --test cli`。
-
-### 10.7 GUI 端對端測試（wine）
-
-```sh
-scripts/gui-e2e-wine.sh
-```
-
-此腳本在 wine + Xvfb 中執行真正的 GUI，並以 xdotool 送出鍵盤操作：
-
-- 以 hg38 執行 `tests/data/vcf_hg38_table.vcf`，匯出 TSV 與 CSV，與 CLI 輸出比對（移除 BOM 後須 byte-identical）。
-- Auto 模式偵測 hg19 檔案。
-- hg38 模式讀取 hg19 檔案，應顯示錯誤對話框。
-
-需要 `wine`（64 位元）、`Xvfb`、`xdotool` 與 ImageMagick（`import`、`convert`）。若要讓螢幕截圖中的中文正常顯示，需安裝 CJK 字型並在 wine 設定 FontLink；測試本身不需要字型。
-
-### 10.8 重新產生測試資料
+### 10.7 重新產生測試資料
 
 ```sh
 python3 tests/data/make_fixtures.py
@@ -552,10 +519,8 @@ python3 tests/data/make_fixtures.py
 
 ```text
 apoe-typer/
-├── Cargo.toml                 套件設定（lib、CLI、GUI 三個 target）
-├── build.rs                   Windows 專用：嵌入 manifest 與 VERSIONINFO（Linux 上為 no-op）
-├── .cargo/config.toml         x86_64-pc-windows-gnu 的 linker 與 wine runner；msvc 靜態 CRT
-├── res/                       GUI 的 manifest 與 .rc 資源
+├── Cargo.toml                 套件設定（lib、CLI、網頁介面三個 target）
+├── .cargo/config.toml         msvc 目標靜態連結 C runtime
 ├── src/
 │   ├── lib.rs                 函式庫進入點與公開 API
 │   ├── main.rs                CLI（apoe-typer）
@@ -565,20 +530,18 @@ apoe-typer/
 │   ├── reference.rs           參考基因組座標、染色體長度與登錄號
 │   ├── report.rs              表頭、列資料、TSV / CSV 輸出
 │   ├── error.rs               錯誤型別
-│   └── bin/apoe-typer-gui/    Win32 GUI（apoe-typer-gui.exe）
+│   └── bin/apoe-typer-web/    本機網頁介面（main.rs 伺服器、index.html 頁面）
 ├── tests/
 │   ├── cli.rs                 CLI 測試
 │   ├── matrix.rs              資料驅動 matrix 測試
 │   ├── oracle.rs              參考腳本差異測試
 │   ├── table_md.rs            實驗室判讀表測試
+│   ├── web.rs                 網頁介面測試
 │   ├── data/                  測試用 VCF 與 expected_*.tsv
 │   └── oracle/gen_oracle.py   產生 oracle 資料
-├── scripts/
-│   ├── test-wine.sh           Windows 測試（wine）
-│   └── gui-e2e-wine.sh        GUI 端對端測試（wine + Xvfb + xdotool）
+├── scripts/build_windows.sh   交叉編譯並打包 Windows exe
 └── docs/
-    ├── SPEC.md                設計規格（英文；判讀規則與輸入輸出的完整契約）
-    └── gui-screenshot.png     README 用的 GUI 截圖
+    └── SPEC.md                設計規格（英文；判讀規則與輸入輸出的完整契約）
 ```
 
 ---
@@ -590,7 +553,7 @@ apoe-typer/
 - **ε1 極為罕見**。未 phase 的雙雜合子預設報告為 ε2/ε4，ε1/ε3 的可能性存在但極低。
 - **參考基因組必須與 VCF 一致**。若 `-r` 與 VCF header 不符會直接報錯；若 header 無法偵測，請明確指定 `-r`，避免假設 hg38 造成座標錯誤。
 - **REF 不符時不 call**。請確認 VCF 是以正確的參考基因組比對產生。
-- **GUI 僅支援 Windows**。Linux 上執行 `apoe-typer-gui` 會顯示訊息並結束（exit 1），請使用 CLI，或在 wine 中執行 GUI。
+- **網頁介面需要瀏覽器**。程式本身不依賴瀏覽器，但操作頁面需要現代瀏覽器（Edge、Chrome、Firefox）。
 - **不支援 BCF**。請先以 `bcftools view -Ov` 轉換。
 - **缺失與無法判讀的結果不會被推測**。請查看 `note` 欄，並對 `NA`、`./.`、`?` 的樣本進行人工檢查。
 

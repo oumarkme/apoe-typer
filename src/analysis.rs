@@ -22,7 +22,7 @@ pub struct AnalysisOptions {
 /// How the reference build was chosen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildSource {
-    /// Selected explicitly (CLI `-r`, GUI dropdown).
+    /// Selected explicitly (CLI `-r`, web page drop-down).
     Specified,
     /// Auto-detected from the VCF header (`##contig` chr19 length or accession).
     DetectedFromHeader,
@@ -78,7 +78,7 @@ pub struct AnalysisResult {
     pub is_gvcf: bool,
     /// One entry per VCF sample column, in header order.
     pub samples: Vec<SampleResult>,
-    /// File-level warnings for stderr / the GUI status line.
+    /// File-level warnings for stderr / the web status line.
     pub warnings: Vec<String>,
 }
 

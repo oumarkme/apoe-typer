@@ -36,7 +36,7 @@ pub struct SnpSite {
 pub const CHR19_LABEL: &str = "chr19";
 
 impl Build {
-    /// All supported builds, in CLI/GUI display order.
+    /// All supported builds, in CLI/web display order.
     pub const ALL: [Build; 3] = [Build::Hg19, Build::Hg38, Build::Hs1];
 
     /// Short identifier used on the command line (`hg19`, `hg38`, `hs1`).
@@ -45,15 +45,6 @@ impl Build {
             Build::Hg19 => "hg19",
             Build::Hg38 => "hg38",
             Build::Hs1 => "hs1",
-        }
-    }
-
-    /// Human readable description.
-    pub fn description(self) -> &'static str {
-        match self {
-            Build::Hg19 => "GRCh37/hg19",
-            Build::Hg38 => "GRCh38/hg38",
-            Build::Hs1 => "T2T-CHM13v2.0/hs1",
         }
     }
 

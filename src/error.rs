@@ -1,4 +1,4 @@
-//! Error type shared by the library, the CLI and the GUI.
+//! Error type shared by the library, the CLI and the web interface.
 
 use std::fmt;
 use std::path::PathBuf;

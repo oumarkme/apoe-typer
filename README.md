@@ -1,24 +1,28 @@
 # apoe-typer
 
-Call the APOE genotype (ε1–ε4) from the two APOE SNPs in a VCF or gVCF file, with a Windows app or a command line.
+從 VCF / gVCF 檔依 rs429358 與 rs7412 判讀 APOE 對偶基因型（ε1–ε4），可用瀏覽器操作，也可用命令列。
 
-**Status:** research use, not a validated clinical test. **Version:** v0.2.0. **Platforms:** the GUI runs on 64-bit Windows 10 and later; the CLI builds on Linux and Windows.
+**狀態：** 供研究與參考使用，不是經驗證的臨床診斷工具。**版本：** v0.3.0。**平台：** 網頁介面 exe 適用 64 位元 Windows 10 以上；CLI 與網頁介面可在 Linux 自行建置。
 
-APOE ε2, ε3, and ε4 are defined by two SNPs, rs429358 and rs7412. Pipelines rarely report them as one result, and the answer depends on genome build, phasing, and gVCF coverage. apoe-typer reads the two sites, applies the rules in one place, and writes one row per sample with doses, phasing, and a note for every unusual call. The calling logic follows [apoe-genotyper](https://github.com/Biomedical-Genetics/apoe-genotyper) and a laboratory APOE lookup table.
+APOE ε2、ε3、ε4 由兩個 SNP 決定：rs429358（T>C）與 rs7412（C>T）。判讀結果會受參考基因組版本、phasing 與 gVCF 覆蓋影響，常需要人工整理。apoe-typer 讀取這兩個位點，以固定規則判讀，每個樣本輸出一列，包含基因型、各對偶基因的拷貝數、是否 phased，以及每個不尋常結果的說明（`note`）。判讀邏輯依循 [apoe-genotyper](https://github.com/Biomedical-Genetics/apoe-genotyper) 的 `callAPOE()`，並對照實驗室的判讀表。
 
-## Install
+## 安裝
 
-**Windows (no installation).** Download `apoe-typer-gui_v0.2.0.exe` from the [latest release](https://github.com/oumarkme/apoe-typer/releases/latest) and double-click it. The file is self-contained: no Visual C++ Redistributable, no Python, no administrator rights. The exe is unsigned, so SmartScreen may warn on the first run. Check the download against the `.sha256` file in the release.
+**Windows（免安裝）。** 從 [Releases](https://github.com/oumarkme/apoe-typer/releases/latest) 下載 `apoe-typer-web_v0.3.0.exe`，雙擊即可。不需要安裝 Python、Visual C++ Redistributable 或系統管理員權限。exe 未經程式碼簽章，首次執行時 SmartScreen 可能顯示警告；可用 release 內的 `.sha256` 檔核對檔案。
 
-**Linux or Windows CLI.** Install [Rust](https://rustup.rs) (stable), then:
+**Linux（從原始碼建置）。** 安裝 [Rust](https://rustup.rs)（stable）後：
 
 ```sh
 git clone https://github.com/oumarkme/apoe-typer.git
 cd apoe-typer
-cargo build --release          # target/release/apoe-typer
+cargo build --release    # target/release/apoe-typer 與 apoe-typer-web
 ```
 
-## Quick start
+## 快速開始
+
+**瀏覽器：** 執行 `apoe-typer-web`（Windows 上雙擊 exe），預設瀏覽器會開啟操作頁面。將一個或多個 VCF / gVCF 拖曳到頁面（或點選選擇檔案），可以分次加入，選幾個就分析幾個。參考基因組保持「自動偵測」，選好所有檔案後按「執行」開始分析。每個檔案各有狀態，匯出時會得到一個 TSV 或 CSV 檔，包含所有檔案的結果。檔案只在本機處理，不會傳送到網路；關閉分頁後程式會自動結束。
+
+**命令列：**
 
 ```sh
 target/release/apoe-typer -r hg38 tests/data/vcf_hg38_table.vcf
@@ -34,66 +38,63 @@ e3e4	ε3/ε4	T/C	C/C	0	0	1	1	no
 e4e4	ε4/ε4	C/C	C/C	0	0	0	2	no	
 ```
 
-In the Windows app, choose the VCF (browse, drag and drop, or pass the path as an argument), pick the reference build or leave **Auto**, and press **Run**. Results can be exported as TSV, CSV, or TXT (UTF-8 with BOM, so Excel shows ε correctly).
-
-![apoe-typer GUI](docs/gui-screenshot.png)
-
-## Usage
+## 使用方式
 
 ```text
 apoe-typer [OPTIONS] [INPUT]
 ```
 
-| Option | Meaning |
+| 選項 | 說明 |
 |---|---|
-| `INPUT` | VCF or gVCF (`.vcf`, `.vcf.gz`, bgzip, `.g.vcf.gz`). Omitted or `-` reads stdin. BCF is not supported (`bcftools view -Ov` first). |
-| `-r, --ref <BUILD>` | `hg19`, `hg38`, or `hs1` (T2T-CHM13v2.0). Omitted: detected from the VCF header, otherwise hg38 is assumed and reported on stderr. A build that contradicts the header is an error. |
-| `-o, --output <FILE>` | `.csv` writes RFC 4180 CSV; any other name writes TSV. Omitted: TSV to stdout. |
-| `-v`, `-h` | Version, help. |
+| `INPUT` | VCF 或 gVCF（`.vcf`、`.vcf.gz`、bgzip、`.g.vcf.gz`）。省略或為 `-` 時從 stdin 讀取。不支援 BCF（請先 `bcftools view -Ov`）。 |
+| `-r, --ref <BUILD>` | `hg19`、`hg38` 或 `hs1`（T2T-CHM13v2.0）。省略時由 VCF header 偵測，偵測不到則假設 hg38 並在 stderr 說明。與 header 矛盾時會報錯。 |
+| `-o, --output <FILE>` | 副檔名 `.csv` 輸出 RFC 4180 CSV，其他輸出 TSV。省略時輸出 TSV 到 stdout。 |
+| `-v`、`-h` | 版本、說明。 |
 
-Exit status: 0 success, 1 runtime error (unreadable file, malformed VCF, build mismatch), 2 invalid arguments. Only the table goes to stdout; diagnostics go to stderr, so the tool works in pipelines:
+結束代碼：0 成功、1 執行錯誤（檔案無法讀取、VCF 格式錯誤、build 不符）、2 參數錯誤。stdout 只輸出表格，診斷訊息寫到 stderr，因此可接在 pipeline 之後：
 
 ```sh
 bcftools view -Ov sample.vcf.gz | apoe-typer -r hg38 > result.tsv
 ```
 
-Output columns: `sample`, `APOE`, the two genotypes, `e1_dose` to `e4_dose` (copies of each allele, or `NA`), `phased` (both SNPs in one phase set), and `note`. The full column and note reference is in the [manual](docs/MANUAL.zh-TW.md) (Traditional Chinese).
+輸出欄位：`sample`、`APOE`、兩個位點的基因型、`e1_dose`–`e4_dose`（各對偶基因拷貝數，無法判讀為 `NA`）、`phased`（兩個位點是否在同一個 phase set）與 `note`。完整欄位與 note 對照見[使用手冊](docs/MANUAL.zh-TW.md)。
 
-## How it works
+## 判讀方式
 
-1. The reader detects plain, gzip, and multi-block bgzip input, and skips a UTF-8 BOM and CRLF line endings.
-2. The two sites are taken from the selected build:
+1. 讀取 plain、gzip 與多 block bgzip 輸入，略過 UTF-8 BOM 與 CRLF。
+2. 依參考基因組取得兩個位點（1-based，+ strand；座標與 dbSNP 核對）：
 
-   | Build | rs429358 (T>C) | rs7412 (C>T) |
+   | 參考基因組 | rs429358（T>C） | rs7412（C>T） |
    |---|---|---|
    | hg19 | chr19:45411941 | chr19:45412079 |
    | hg38 | chr19:44908684 | chr19:44908822 |
    | hs1 | chr19:47733380 | chr19:47733518 |
 
-3. Each sample's genotypes give two haplotypes: ε1 = C/T, ε2 = T/T, ε3 = T/C, ε4 = C/C (rs429358 / rs7412). Unphased double heterozygotes are reported as ε2/ε4, with a note that ε1/ε3 is possible but very rare.
-4. A site missing from a gVCF is called from reference blocks (`<NON_REF>`, `<*>`, Strelka `END=`). A site not covered by any record is a no-call, and with an unconfirmed build it is never assumed to be reference.
-5. Indels, MNPs, spanning deletions, REF mismatches, non-diploid genotypes, and missing calls are reported in `note` and never guessed.
+3. 每個樣本的兩個位點基因型組成兩條單倍型：ε1 = C/T、ε2 = T/T、ε3 = T/C、ε4 = C/C（rs429358 / rs7412）。兩個位點都 phased 且在同一個 phase set 時直接配對；否則兩種配對方式結果相同才判讀，不同時（未 phase 的雙雜合子）報告為 ε2/ε4，並註明 ε1/ε3 的可能性（極罕見）。
+4. gVCF 的位點由 reference block（`<NON_REF>`、`<*>`、Strelka 的 `END=`）判讀；未被覆蓋的位點為 no call。非 gVCF 的 VCF 中缺少的位點視為參考型，但參考基因組未確認時不做此假設。
+5. indel、MNP、spanning deletion、REF 不符、非二倍體與缺失一律寫入 `note`，不做推測。
 
-The behavior is specified in [docs/SPEC.md](docs/SPEC.md).
+完整規則見 [docs/SPEC.md](docs/SPEC.md)。
 
-## Limits
+## 限制
 
-- Only rs429358 and rs7412 are read; other APOE variants are out of scope.
-- The reference build must match the VCF. Pass `-r` when the header carries no contig information.
-- Results are for research. Treat `NA`, `./.`, and any row with a `note` as needing manual review.
+- 只判讀 rs429358 與 rs7412，其他 APOE 變異不在範圍內。
+- 參考基因組必須與 VCF 一致；header 沒有 contig 資訊時請以 `-r` 指定。
+- 不依 read depth 或 genotype quality 過濾（只有 gVCF 的零深度 block 視為 no call）；非 `PASS` 的 FILTER 會記錄在 `note`，但不會排除該筆資料。
+- 結果僅供研究。`NA`、`./.` 與任何帶有 `note` 的列都需要人工確認。
 
-## Build the Windows exe
+## 建置 Windows exe
 
-`scripts/build_windows.sh` cross-compiles the GUI from Linux with [cargo-xwin](https://github.com/rust-cross/cargo-xwin) (`x86_64-pc-windows-msvc`), links the C runtime statically, remaps build paths, and writes `dist/apoe-typer-gui_v<version>.exe` with its SHA-256. It needs `lld`, `llvm-rc`, and `clang-cl` on the PATH. Set a local `CARGO_TARGET_DIR` when the project sits on a network share.
+`scripts/build_windows.sh` 在 Linux 上以 [cargo-xwin](https://github.com/rust-cross/cargo-xwin) 交叉編譯（`x86_64-pc-windows-msvc`），靜態連結 C runtime，重新對應編譯路徑，並在 `dist/` 產生 `apoe-typer-web_v<版本>.exe` 與 SHA-256。需要 `lld`、`llvm-rc` 與 `clang-cl`。專案位於網路磁碟時請設定本機的 `CARGO_TARGET_DIR`。
 
-## Test
+## 測試
 
 ```sh
 cargo test --release
 ```
 
-The suite covers parsing, all three builds, gVCF dialects, the CLI, and a differential check against a reference script (127 tests). `scripts/test-wine.sh` runs the same suite on the Windows target under wine.
+共 131 項測試，涵蓋解析、三種參考基因組、各種 gVCF 格式、CLI、網頁介面（啟動伺服器並以 HTTP 檢查）與參考腳本的差異比對。
 
-## Help and contributing
+## 問題與貢獻
 
-Report bugs and questions in the [issue tracker](https://github.com/oumarkme/apoe-typer/issues). Pull requests are welcome; run `cargo fmt`, `cargo clippy`, and `cargo test` first. The original calling logic is by the [Biomedical-Genetics](https://github.com/Biomedical-Genetics/apoe-genotyper) group.
+問題與建議請開 [issue](https://github.com/oumarkme/apoe-typer/issues)。歡迎 pull request；送出前請執行 `cargo fmt`、`cargo clippy` 與 `cargo test`。

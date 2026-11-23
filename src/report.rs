@@ -1,4 +1,4 @@
-//! Report table shared by the CLI output and the GUI table/export.
+//! Report table shared by the CLI output and the web table/export.
 //!
 
 use std::io::{self, Write};
@@ -78,8 +78,8 @@ pub fn build_table(result: &AnalysisResult) -> Table {
     }
 }
 
-/// Writes the table. `bom = true` prefixes a UTF-8 BOM (used by the GUI export
-/// so that Excel shows `ε` correctly); the CLI uses `bom = false`.
+/// Writes the table. `bom = true` prefixes a UTF-8 BOM (for files opened in Excel;
+/// the CLI and the web page use `bom = false`).
 pub fn write_table<W: Write>(
     out: W,
     table: &Table,

@@ -228,10 +228,12 @@ fn run(cli: &Cli) -> ExitCode {
 fn main() -> ExitCode {
     // Make the Greek epsilon in the table display correctly on Windows consoles.
     #[cfg(windows)]
-    // SAFETY: SetConsoleOutputCP only changes the code page of the process console; it takes
-    // a plain integer and has no memory-safety preconditions.
-    unsafe {
-        windows_sys::Win32::System::Console::SetConsoleOutputCP(65001);
+    {
+        extern "system" {
+            fn SetConsoleOutputCP(code_page: u32) -> i32;
+        }
+        // SAFETY: only changes the console code page; takes a plain integer.
+        unsafe { SetConsoleOutputCP(65001) };
     }
 
     match parse_args(std::env::args_os().skip(1)) {

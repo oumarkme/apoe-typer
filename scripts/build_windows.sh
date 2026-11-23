@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the standalone Windows GUI (apoe-typer-gui.exe) for x86_64-pc-windows-msvc
+# Builds the standalone Windows exe with the browser interface (apoe-typer-web.exe) for x86_64-pc-windows-msvc
 # and copies it with a SHA-256 sum into dist/. The C runtime is linked statically, so
 # users need no Visual C++ Redistributable and no installation.
 # Build paths are remapped so the exes hold no home directory or host path.
@@ -22,12 +22,12 @@ export RUSTFLAGS="-C target-feature=+crt-static \
   -C link-arg=/PDBALTPATH:apoe-typer.pdb"
 cd "$root"
 rustup target add "$target" >/dev/null 2>&1 || true
-cargo xwin build --release --locked --target "$target" --bin apoe-typer-gui -j "${JOBS:-8}" "$@"
+cargo xwin build --release --locked --target "$target" --bin apoe-typer-web -j "${JOBS:-8}" "$@"
 
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 out="${CARGO_TARGET_DIR:-target}/$target/release"
 mkdir -p dist
 rm -f dist/*  # dist/ keeps only the newest version
-exe="apoe-typer-gui_v${version}.exe"
-cp "$out/apoe-typer-gui.exe" "dist/$exe"
+exe="apoe-typer-web_v${version}.exe"
+cp "$out/apoe-typer-web.exe" "dist/$exe"
 (cd dist && sha256sum "$exe" | tee "$exe.sha256")

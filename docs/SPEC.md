@@ -190,7 +190,7 @@ Exact texts (prefix added by analysis):
 - sample: `unphased double heterozygote: ε2/ε4 or ε1/ε3; reported ε2/ε4 (ε1 is very rare)`
 - sample: `reference build not specified and not detectable from VCF header; hg38 assumed`
 
-## 9. Output (`report.rs`) — shared by CLI and GUI
+## 9. Output (`report.rs`) — shared by CLI and web
 
 Header (`header_for`), e.g. hg38 (must equal `tests/data/expected_headers.tsv`):
 `sample | APOE | rs429358 (chr19:44908684) | rs7412 (chr19:44908822) | e1_dose | e2_dose | e3_dose | e4_dose | phased | note`
@@ -231,41 +231,49 @@ apoe-typer [OPTIONS] [INPUT]
 - Errors: `apoe-typer: error: {ApoeError}` on stderr, exit 1. Output file write errors -> exit 1.
 - On Windows targets call `SetConsoleOutputCP(65001)` at start so `ε` displays (cfg(windows) only).
 
-## 11. GUI (`src/bin/apoe-typer-gui/`, binary `apoe-typer-gui`, Win32 via `windows-sys` 0.61)
+## 11. Web interface (`src/bin/apoe-typer-web/`, binary `apoe-typer-web`)
 
-- `main.rs`: `#![cfg_attr(windows, windows_subsystem = "windows")]`; `#[cfg(windows)] mod ...;`;
-  non-Windows `main` prints that the GUI is Windows-only and exits 1 (keeps Linux builds green).
-- W APIs only (UTF-16 everywhere; paths via `OsString::from_wide`), so CJK paths work.
-- Window "APOE Typer {version}", resizable, minimum size, controls laid out on `WM_SIZE`:
-  - `參考基因組(&G):` label + drop-down list ComboBox (`CBS_DROPDOWNLIST`):
-    `自動偵測 (Auto)`, `hg19 (GRCh37)`, `hg38 (GRCh38)`, `hs1 (T2T-CHM13v2.0)`; default Auto.
-  - `輸入檔(&I):` label + Edit (path) + `瀏覽(&B)...` button -> `GetOpenFileNameW` (filters
-    `VCF / gVCF (*.vcf;*.vcf.gz;*.gvcf;*.gvcf.gz)` and `所有檔案 (*.*)`), fills the Edit.
-  - `執行(&R)` button: validates the path, runs `analyze_path` on a worker thread
-    (`std::thread` + `catch_unwind`), posts the result back with `PostMessageW(WM_APP+n)`; buttons
-    disabled while running; errors -> `MessageBoxW`.
-  - ListView (`LVS_REPORT`, full-row select, grid lines) whose columns are exactly
-    `report::header_for(build)` and whose rows are `report::build_table(&result).rows`.
-  - `匯出(&E)...` button (disabled until a result exists) -> `GetSaveFileNameW` (filters TSV `*.tsv`,
-    CSV `*.csv`, text `*.txt`; `OFN_OVERWRITEPROMPT`; default name `apoe_result.tsv`) ->
-    `report::write_table(file, &table, OutputFormat::from_path(path), bom = true)`.
-  - Status line (static text) showing sample count, build used and how it was chosen, warnings,
-    export path.
-- Font: system message font (`SystemParametersInfoW(SPI_GETNONCLIENTMETRICS)` -> `CreateFontIndirectW`).
-- Tab navigation via `IsDialogMessageW`; Enter triggers `執行`. Drag & drop a file onto the window
-  (`DragAcceptFiles`/`WM_DROPFILES`) fills the path. An optional command-line argument pre-fills the path.
-- `build.rs` + `res/`: for Windows targets only (check `CARGO_CFG_TARGET_OS`), embed an application
-  manifest (Common Controls v6, `PerMonitorV2` DPI awareness, UTF-8 not required) and VERSIONINFO via
-  `embed-resource` 3 into `apoe-typer-gui` only. Must be a no-op on Linux.
-- `.cargo/config.toml`: `[target.x86_64-pc-windows-gnu] linker = "x86_64-w64-mingw32-gcc"`,
-  `runner = "wine"` (see `scripts/test-wine.sh`; GUI end-to-end: `scripts/gui-e2e-wine.sh`).
-- Build: `cargo build --release --target x86_64-pc-windows-gnu` must produce both `.exe`s.
+Standard library only (no HTTP crate, no async runtime). The page is one embedded file (`index.html`,
+Traditional Chinese, light theme only; colors from the Okabe-Ito palette and grays).
+
+- `main`: `#![cfg_attr(windows, windows_subsystem = "windows")]` in release builds; binds
+  `127.0.0.1:0` (random port), prints the URL on stdout, opens the default browser
+  (`rundll32 url.dll,FileProtocolHandler` / `open` / `xdg-open`; `--no-browser` skips it).
+  One thread per connection; `Connection: close`.
+- Routes: `GET /` page; `GET /api/ping` heartbeat; `POST /api/bye` tab closed;
+  `POST /api/analyze?ref=auto|hg19|hg38|hs1` with the raw VCF as body (the browser streams the
+  selected `File`; the server feeds the body to `analyze_reader` without a temporary file, then
+  drains the rest of the upload so the browser always receives the answer).
+- Answer: `{"ok":true,"build","source":"specified|detected|assumed","gvcf","warnings":[],"tsv"}`
+  or `{"ok":false,"error"}`. `tsv` comes from `report::write_table`, so it matches the CLI byte for byte; the page builds
+  the merged table and the single export (TSV or CSV) from the `tsv` text of each file.
+- Security: every request must carry `Host` = `127.0.0.1:<port>` or `localhost:<port>`; an `Origin`
+  header, when present, must be the same origin (DNS rebinding and cross-site posts get 403). The
+  page is served with a restrictive `Content-Security-Policy`; table cells are set with `textContent`.
+- Lifecycle: the page pings every 10 s and sends `/api/bye` on `pagehide`. The process exits
+  when no analysis is running and either a bye is older than 5 s (a reload cancels it with the next
+  ping) or no ping arrived for 120 s (300 s before the first page load).
+- Page: build drop-down (Auto, hg19, hg38, hs1), a drop zone and file picker (many files, and
+  repeated additions), **執行** and **清除全部** buttons, a per-file list, warnings, one merged
+  result table, and downloads. Selecting adds files to the list (a file with the same name, size and
+  modification time is skipped) and starts nothing; **執行** sends one `POST /api/analyze` per file
+  that is still 待分析 or failed, three at a time. During a run the add, remove, clear, and build
+  controls are disabled. A failed file shows its own error and does not stop the others. A file can
+  be removed from the list before or after a run. Changing the build makes every file 待分析
+  again and clears the results, so results of different builds are never mixed by accident.
+  There is one export: a single TSV or CSV file (BOM added) holding the results of every analyzed
+  file, with the columns `檔案, sample, APOE, rs429358, rs7412, e1_dose..e4_dose, phased, note, build`:
+  the build-specific coordinates leave the header because files may use different builds, and the
+  `build` column records each file's build.
+- Tests: `tests/web.rs` starts the binary and checks the page, an analysis against the CLI output,
+  a build mismatch error, and the 403 and 404 answers; unit tests cover the exit rules,
+  JSON escaping, and request parsing.
 
 ## 12. Windows distribution
 
-Only the GUI is shipped. `scripts/build_windows.sh` cross-compiles `apoe-typer-gui` for
+Only the web interface is shipped. `scripts/build_windows.sh` cross-compiles `apoe-typer-web` for
 `x86_64-pc-windows-msvc` with cargo-xwin, links the C runtime statically (`+crt-static`), remaps build
-paths, and writes `dist/apoe-typer-gui_v<ver>.exe` plus its `.sha256` (only the newest version stays in
+paths, and writes `dist/apoe-typer-web_v<ver>.exe` plus its `.sha256` (only the newest version stays in
 `dist/`). The exe imports only system DLLs, so no installer, runtime or administrator rights are needed.
 Release profile: `opt-level = 3` (about 15 % faster than `"s"` on a 240 MB VCF, +27 KB), LTO, one
 codegen unit, strip. The CLI is built from source for Linux and pipelines. No Docker image is shipped.
@@ -282,4 +290,3 @@ codegen unit, strip. The CLI is built from source for Linux and pipelines. No Do
 - `tests/data/oracle_*`: reference-script oracle; compare APOE + doses for every sample.
 - Name tests with the user's keywords so coverage is auditable: `vcf_`, `gvcf_`, `phased_`,
   `unphased_`, `hg19_`, `hg38_`, `hs1_`, `wildtype_`, `snp_`, `indel_` (plus `cli_`, `oracle_`, ...).
-- Windows: `cargo test --target x86_64-pc-windows-gnu` runs under wine (runner in `.cargo/config.toml`).
