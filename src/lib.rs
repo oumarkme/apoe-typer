@@ -6,6 +6,7 @@
 //! [`report::build_table`] so that the CLI output and the web export are identical.
 
 pub mod analysis;
+mod bgzf;
 pub mod error;
 pub mod genotype;
 pub mod reference;

@@ -126,7 +126,7 @@ scripts/build_windows.sh
 
 腳本以 [cargo-xwin](https://github.com/rust-cross/cargo-xwin) 編譯 `x86_64-pc-windows-msvc`，靜態連結 C runtime（`-C target-feature=+crt-static`），產出的 exe 不需要安裝 Visual C++ Redistributable 或任何其他相依套件，只匯入 Windows 內建的系統 DLL。編譯路徑已重新對應（`--remap-path-prefix`），exe 內不含家目錄或主機路徑。
 
-產出（含 SHA-256）放在 `dist/`，只發行網頁介面：`apoe-typer-web_v<版本>.exe`（約 0.54 MB）與同名的 `.sha256`。CLI 僅供 Linux 與 pipeline 使用，以 `cargo build --release` 自行建置。
+發行版（Windows x64、Windows ARM64、macOS Apple silicon）由 GitHub Actions 在推送 tag 時建置，見 README 的「建置發行版」。以下為在 Linux 上本機交叉編譯 Windows x64 版：產出（含 SHA-256）放在 `dist/`，檔名為：`apoe-typer-web_v<版本>.exe`（約 0.54 MB）與同名的 `.sha256`。CLI 僅供 Linux 與 pipeline 使用，以 `cargo build --release` 自行建置。
 
 需要 Rust 工具鏈、`cargo-xwin`、`lld`，以及 `llvm-rc` 與 `clang-cl`（可由 conda-forge 的 `llvm-tools` 與 `clang` 取得）。專案位於網路磁碟時，請設定本機的 `CARGO_TARGET_DIR`，因為網路磁碟無法執行 build script。
 

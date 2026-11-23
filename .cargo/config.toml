@@ -2,3 +2,6 @@
 # scripts/build_windows.sh sets RUSTFLAGS (which replaces these entries) with the same flag plus path remapping.
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -269,14 +269,23 @@ Traditional Chinese, light theme only; colors from the Okabe-Ito palette and gra
   a build mismatch error, and the 403 and 404 answers; unit tests cover the exit rules,
   JSON escaping, and request parsing.
 
-## 12. Windows distribution
+## 12. Distribution
 
-Only the web interface is shipped. `scripts/build_windows.sh` cross-compiles `apoe-typer-web` for
-`x86_64-pc-windows-msvc` with cargo-xwin, links the C runtime statically (`+crt-static`), remaps build
-paths, and writes `dist/apoe-typer-web_v<ver>.exe` plus its `.sha256` (only the newest version stays in
-`dist/`). The exe imports only system DLLs, so no installer, runtime or administrator rights are needed.
-Release profile: `opt-level = 3` (about 15 % faster than `"s"` on a 240 MB VCF, +27 KB), LTO, one
-codegen unit, strip. The CLI is built from source for Linux and pipelines. No Docker image is shipped.
+Only the web interface is shipped. It uses the standard library only, so the same source builds for
+Windows x64 (`x86_64-pc-windows-msvc`), Windows ARM64 (`aarch64-pc-windows-msvc`) and macOS Apple
+silicon (`aarch64-apple-darwin`). The Windows builds link the C runtime statically (`+crt-static`,
+set in `.cargo/config.toml`), import only system DLLs, and need no installer, runtime or
+administrator rights. Release profile: `opt-level = 3`, LTO, one codegen unit, strip.
+
+- `.github/workflows/release.yml`: one build job with a three-target matrix, triggered by a tag
+  `vX.Y.Z` that must equal the `Cargo.toml` version. It builds `apoe-typer-web` and attaches
+  `apoe-typer-web_v<ver>_<platform>.exe` (Windows) or `.tar.gz` (macOS) with a `.sha256` file to the
+  release. It runs no tests; tests run locally before tagging.
+- `scripts/build_windows.sh`: local cross build of the Windows x64 exe with cargo-xwin and remapped
+  paths, written to `dist/` (git-ignored).
+- The binaries are unsigned: Windows SmartScreen may warn, and macOS Gatekeeper blocks a downloaded
+  binary until its quarantine attribute is removed (`xattr -d com.apple.quarantine`).
+- No Docker image is shipped. The CLI is built from source (`cargo build --release`).
 
 ## 13. Tests
 
@@ -290,3 +299,22 @@ codegen unit, strip. The CLI is built from source for Linux and pipelines. No Do
 - `tests/data/oracle_*`: reference-script oracle; compare APOE + doses for every sample.
 - Name tests with the user's keywords so coverage is auditable: `vcf_`, `gvcf_`, `phased_`,
   `unphased_`, `hg19_`, `hg38_`, `hs1_`, `wildtype_`, `snp_`, `indel_` (plus `cli_`, `oracle_`, ...).
+
+## 14. Performance
+
+The work is one pass over the text: only two chr19 positions matter, so almost every line is
+skipped. The pass stays complete on purpose (it also validates the file, and an early stop on a
+coordinate-sorted file would silently call an unsorted file wrongly). Costs, measured on a
+560 MB single-sample VCF with 4.4 M records (6 cores):
+
+- Plain 0.51 s (about 1.1 GB/s), constant memory (about 2.4 MB).
+- `bgzf.rs`: a canonical BGZF block (gzip header with the `BC` field) is cut from the stream by its
+  recorded size and inflated on up to 4 threads, returned in input order, with CRC32 and ISIZE
+  checked. Anything else (plain gzip members, zero padding, trailing bytes) goes to the
+  sequential decoder, so its behavior is unchanged. bgzip of the same file: 2.17 s -> 0.69 s.
+- `vcf::skip_other_chrom`: a line on another chromosome is checked for eight columns (same error
+  text as `split_fixed`) and its INFO column is read only when ALT is `.` or symbolic (gVCF
+  evidence). About 15 % faster on plain text.
+- Not done: random access through a `.tbi` / `.csi` index would answer in milliseconds for indexed
+  files, but the web page uploads the whole file and cannot use it.
+

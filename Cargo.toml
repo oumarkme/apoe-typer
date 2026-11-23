@@ -1,6 +1,6 @@
 [package]
 name = "apoe-typer"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "APOE genotyper (rs429358 / rs7412) for VCF and gVCF files, with a CLI and a local browser interface"
 default-run = "apoe-typer"

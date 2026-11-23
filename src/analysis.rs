@@ -185,12 +185,12 @@ fn analyze_lines(
             continue;
         }
         let line_no = lines.line_no();
+        if vcf::skip_other_chrom(line, line_no, &mut is_gvcf)? {
+            continue;
+        }
         let fields = vcf::split_fixed(line, line_no)?;
         if !is_gvcf && vcf::gvcf_evidence(fields[4], fields[7]) {
             is_gvcf = true;
-        }
-        if !vcf::is_chr19_bytes(fields[0]) {
-            continue;
         }
         chr19_records += 1;
         let ext = vcf::extent(&fields, line_no)?;

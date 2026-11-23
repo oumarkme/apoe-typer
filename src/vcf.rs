@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use flate2::bufread::GzDecoder;
 
+use crate::bgzf;
 use crate::error::ApoeError;
 use crate::genotype::{parse_gt, Gt};
 use crate::reference::{is_chr19_name, Build};
@@ -19,8 +20,9 @@ const BUF_CAPACITY: usize = 1 << 16;
 /// Warning text for bytes that follow the last complete gzip member.
 pub const WARN_GZIP_TRAILING: &str = "ignored trailing data after the last gzip member";
 
-/// Number of leading bytes needed to recognise gzip, BCF and a UTF-8 BOM.
-const MAGIC_LEN: usize = 3;
+/// Largest look-ahead: a BGZF header (the BCF magic and the UTF-8 BOM need only 3 bytes).
+const MAGIC_LEN: usize = bgzf::HEADER_LEN;
+const TEXT_MAGIC_LEN: usize = 3;
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 const UTF8_BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
 
@@ -111,9 +113,62 @@ enum GzState<R> {
 struct GzMembers<R> {
     state: GzState<R>,
     trailing_garbage: Arc<AtomicBool>,
+    /// Inflates canonical BGZF blocks on several threads (`None` until the first block).
+    pool: Option<bgzf::Pool>,
+    threads: usize,
+    /// The decoded block being served and how much of it was read.
+    cur: Vec<u8>,
+    pos: usize,
+}
+
+/// Decoder threads for BGZF input: up to 4, none on a single-core machine.
+fn decoder_threads() -> usize {
+    match std::thread::available_parallelism().map_or(1, |n| n.get()) {
+        1 => 0,
+        n => n.min(4),
+    }
 }
 
 impl<R: BufRead> GzMembers<R> {
+    fn new(src: Peekable<R>, trailing_garbage: Arc<AtomicBool>) -> Self {
+        GzMembers {
+            state: GzState::Between(src),
+            trailing_garbage,
+            pool: None,
+            threads: decoder_threads(),
+            cur: Vec::new(),
+            pos: 0,
+        }
+    }
+
+    /// Reads the BGZF blocks that follow the last submitted one, as far as the decoder window
+    /// allows, and queues them for the worker threads. Stops at the first member that is not a
+    /// canonical BGZF block; the sequential decoder handles that one.
+    fn fill_pool(&mut self) -> io::Result<()> {
+        let GzState::Between(src) = &mut self.state else {
+            return Ok(());
+        };
+        while self.threads > 0
+            && self.pool.as_ref().map_or(0, bgzf::Pool::in_flight) < 2 * self.threads
+        {
+            let Some(total) = bgzf::block_len(src.peek(bgzf::HEADER_LEN)?) else {
+                break;
+            };
+            let mut block = vec![0u8; total];
+            src.read_exact(&mut block).map_err(|e| match e.kind() {
+                io::ErrorKind::UnexpectedEof => {
+                    io::Error::new(io::ErrorKind::InvalidData, "truncated BGZF block")
+                }
+                _ => e,
+            })?;
+            let threads = self.threads;
+            self.pool
+                .get_or_insert_with(|| bgzf::Pool::new(threads))
+                .submit(block);
+        }
+        Ok(())
+    }
+
     /// Handles the bytes after a complete member: returns the next state.
     fn next_member(&mut self, mut src: Peekable<R>) -> (GzState<R>, io::Result<()>) {
         let head = match src.peek(GZIP_MAGIC.len()) {
@@ -159,6 +214,18 @@ impl<R: BufRead> Read for GzMembers<R> {
             return Ok(0);
         }
         loop {
+            if self.pos < self.cur.len() {
+                let n = buf.len().min(self.cur.len() - self.pos);
+                buf[..n].copy_from_slice(&self.cur[self.pos..self.pos + n]);
+                self.pos += n;
+                return Ok(n);
+            }
+            self.fill_pool()?;
+            if let Some(block) = self.pool.as_mut().and_then(bgzf::Pool::next) {
+                self.cur = block?;
+                self.pos = 0;
+                continue;
+            }
             match std::mem::replace(&mut self.state, GzState::Done) {
                 GzState::Member(mut dec) => match dec.read(buf) {
                     Ok(0) => self.state = GzState::Between(dec.into_inner()),
@@ -205,10 +272,7 @@ where
     let is_gzip = raw.peek(GZIP_MAGIC.len())? == GZIP_MAGIC;
     if is_gzip {
         let flag = Arc::new(AtomicBool::new(false));
-        let members = GzMembers {
-            state: GzState::Between(raw),
-            trailing_garbage: Arc::clone(&flag),
-        };
+        let members = GzMembers::new(raw, Arc::clone(&flag));
         let mut text = Peekable::new(BufReader::with_capacity(BUF_CAPACITY, members));
         prepare_text(&mut text)?;
         let value = f(&mut text)?;
@@ -221,7 +285,7 @@ where
 
 /// Rejects BCF and skips a UTF-8 byte order mark at the start of the text.
 fn prepare_text<R: BufRead>(text: &mut Peekable<R>) -> Result<(), ApoeError> {
-    let head = text.peek(MAGIC_LEN)?;
+    let head = text.peek(TEXT_MAGIC_LEN)?;
     if head.starts_with(b"BCF") {
         return Err(ApoeError::UnsupportedFormat(
             "BCF (binary VCF) is not supported; convert it with `bcftools view -Ov`".to_string(),
@@ -407,6 +471,41 @@ pub fn split_fixed(line: &[u8], line_no: usize) -> Result<Fields<'_>, ApoeError>
         }
     }
     Ok(out)
+}
+
+/// Handles a data line that is not on chromosome 19 without looking at its INFO column: checks
+/// that the line has the eight fixed columns (same error as [`split_fixed`]) and, when the ALT
+/// column can mark a gVCF, sets `is_gvcf`. Returns `false` for a chr19 line, which the caller
+/// then splits with [`split_fixed`].
+pub fn skip_other_chrom(
+    line: &[u8],
+    line_no: usize,
+    is_gvcf: &mut bool,
+) -> Result<bool, ApoeError> {
+    let tab = |s: &[u8]| s.iter().position(|b| *b == b'\t');
+    let first = tab(line).unwrap_or(line.len());
+    if is_chr19_bytes(&line[..first]) {
+        return Ok(false);
+    }
+    let mut rest = line;
+    let mut alt: &[u8] = &[];
+    for i in 0..7 {
+        let Some(t) = tab(rest) else {
+            return Err(ApoeError::InvalidVcf(format!(
+                "line {line_no}: expected at least 8 tab-separated columns, found {}",
+                i + 1
+            )));
+        };
+        if i == 4 {
+            alt = &rest[..t];
+        }
+        rest = &rest[t + 1..];
+    }
+    if !*is_gvcf && (alt == b"." || alt.contains(&b'<')) {
+        let info = &rest[..tab(rest).unwrap_or(rest.len())];
+        *is_gvcf = gvcf_evidence(alt, info);
+    }
+    Ok(true)
 }
 
 /// Fast check whether a CHROM value names chromosome 19.
@@ -941,5 +1040,91 @@ mod tests {
         let mut cut = base.clone();
         cut.truncate(cut.len() - 5);
         assert!(lines(&cut).is_err());
+    }
+
+    /// Text of `n` numbered lines, cut into BGZF blocks of about `per` lines each.
+    fn bgzf_file(n: usize, per: usize) -> (Vec<String>, Vec<u8>) {
+        let lines: Vec<String> = (0..n).map(|i| format!("line {i}")).collect();
+        let mut data = Vec::new();
+        for chunk in lines.chunks(per) {
+            data.extend(bgzf::encode_block((chunk.join("\n") + "\n").as_bytes()));
+        }
+        data.extend(bgzf::encode_block(b""));
+        (lines, data)
+    }
+
+    #[test]
+    fn vcf_bgzf_many_blocks_are_decoded_in_order() {
+        let (want, data) = bgzf_file(5000, 7); // about 700 blocks: several rounds of the pool window
+        assert_eq!(slow_lines(&data).unwrap(), (want.clone(), false));
+        let lines = read_all(&data).unwrap();
+        assert_eq!(lines.len(), want.len());
+        assert!(lines.iter().zip(&want).all(|((_, a), b)| a == b));
+    }
+
+    #[test]
+    fn vcf_bgzf_mixed_with_plain_gzip_and_trailing_bytes() {
+        let (mut want, mut data) = bgzf_file(100, 10);
+        data.extend(gz(b"plain member\n")); // not a BGZF block: the sequential decoder takes it
+        want.push("plain member".to_string());
+        data.extend(bgzf::encode_block(b"after\n"));
+        want.push("after".to_string());
+        assert_eq!(slow_lines(&data).unwrap(), (want.clone(), false));
+        data.extend(b"junk");
+        assert_eq!(slow_lines(&data).unwrap(), (want, true));
+    }
+
+    #[test]
+    fn vcf_bgzf_corruption_and_truncation_are_errors() {
+        let (_, data) = bgzf_file(100, 10);
+        let mut flipped = data.clone();
+        flipped[40] ^= 0x55; // inside the first block's deflate data
+        assert!(slow_lines(&flipped).is_err());
+        let mut cut = data.clone();
+        cut.truncate(cut.len() / 2);
+        assert!(slow_lines(&cut).is_err());
+        let mut no_footer = data.clone();
+        no_footer.truncate(no_footer.len() - 30); // inside the end-of-file block
+        assert!(slow_lines(&no_footer).is_err());
+    }
+
+    #[test]
+    fn vcf_skip_other_chrom_matches_split_fixed() {
+        // Same error text as split_fixed for every short line, and no skip for chr19 lines.
+        for tabs in 0..9 {
+            let line = format!("chr1{}", "\tx".repeat(tabs)).into_bytes();
+            let mut gvcf = false;
+            match (skip_other_chrom(&line, 3, &mut gvcf), split_fixed(&line, 3)) {
+                (Ok(true), Ok(_)) => assert!(tabs >= 7),
+                (Err(a), Err(b)) => assert_eq!(a.to_string(), b.to_string(), "{tabs} tabs"),
+                other => panic!("{tabs} tabs: {other:?}"),
+            }
+        }
+        let mut gvcf = false;
+        assert!(!skip_other_chrom(b"chr19\t1\t.\tA\tG\t.\t.\t.", 1, &mut gvcf).unwrap());
+        assert!(
+            !skip_other_chrom(b"19\t1", 1, &mut gvcf).unwrap(),
+            "short chr19 line is left to split_fixed"
+        );
+        // gVCF evidence on another chromosome: symbolic ALT, and Strelka's ALT "." with END=.
+        for (alt, info, want) in [
+            ("<NON_REF>", ".", true),
+            ("<*>", ".", true),
+            (".", "END=500", true),
+            (".", "DP=5", false),
+            ("G", "END=500", false),
+            ("<DEL>", ".", false),
+        ] {
+            let line = format!("chr2\t5\t.\tA\t{alt}\t.\t.\t{info}\tGT\t0/0");
+            let mut flag = false;
+            assert!(skip_other_chrom(line.as_bytes(), 1, &mut flag).unwrap());
+            assert_eq!(flag, want, "{alt} {info}");
+            let f = split_fixed(line.as_bytes(), 1).unwrap();
+            assert_eq!(
+                gvcf_evidence(f[4], f[7]),
+                want,
+                "reference rule for {alt} {info}"
+            );
+        }
     }
 }
