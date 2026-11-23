@@ -2,13 +2,13 @@
 
 從 VCF / gVCF 檔依 rs429358 與 rs7412 判讀 APOE 對偶基因型（ε1–ε4），可用瀏覽器操作，也可用命令列。
 
-**狀態：** 供研究與參考使用，不是經驗證的臨床診斷工具。**版本：** v0.3.0。**平台：** 網頁介面 exe 適用 64 位元 Windows 10 以上；CLI 與網頁介面可在 Linux 自行建置。
+**狀態：** 供研究與參考使用，不是經驗證的臨床診斷工具。**版本：** v1.0.0。**平台：** 網頁介面 exe 適用 64 位元 Windows 10 以上；CLI 與網頁介面可在 Linux 自行建置。
 
 APOE ε2、ε3、ε4 由兩個 SNP 決定：rs429358（T>C）與 rs7412（C>T）。判讀結果會受參考基因組版本、phasing 與 gVCF 覆蓋影響，常需要人工整理。apoe-typer 讀取這兩個位點，以固定規則判讀，每個樣本輸出一列，包含基因型、各對偶基因的拷貝數、是否 phased，以及每個不尋常結果的說明（`note`）。判讀邏輯依循 [apoe-genotyper](https://github.com/Biomedical-Genetics/apoe-genotyper) 的 `callAPOE()`，並對照實驗室的判讀表。
 
 ## 安裝
 
-**Windows（免安裝）。** 從 [Releases](https://github.com/oumarkme/apoe-typer/releases/latest) 下載 `apoe-typer-web_v0.3.0.exe`，雙擊即可。不需要安裝 Python、Visual C++ Redistributable 或系統管理員權限。exe 未經程式碼簽章，首次執行時 SmartScreen 可能顯示警告；可用 release 內的 `.sha256` 檔核對檔案。
+**Windows（免安裝）。** 從 [Releases](https://github.com/oumarkme/apoe-typer/releases/latest) 下載 `apoe-typer-web_v1.0.0.exe`，雙擊即可。不需要安裝 Python、Visual C++ Redistributable 或系統管理員權限。exe 未經程式碼簽章，首次執行時 SmartScreen 可能顯示警告；可用 release 內的 `.sha256` 檔核對檔案。
 
 **Linux（從原始碼建置）。** 安裝 [Rust](https://rustup.rs)（stable）後：
 
